@@ -38,12 +38,12 @@
 
 ## Progress
 
-- Not started.
+- Completed game scenarios, compatibility fixtures and clean-archive binary verification.
 
 ## Decision log
 
-- No decisions recorded yet.
+- Use separate game profiles and test mods. Record the AO weather backend because its simulation gates game time.
 
 ## Outcomes / Retrospective
 
-- Not completed yet.
+- See docs/verification/README.md for measurements, screenshot, commands and default AO simulator limitation.
