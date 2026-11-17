@@ -17,14 +17,32 @@
 
 RimWorld 1.6.4871에서 바닐라, CE 16.7.4.0, Atmosphere Overhaul 단독, CE와 Atmosphere Overhaul 동시 활성 조합이 전력·조명·저장 복원 테스트를 통과했다. Atmosphere Overhaul 통과 기록은 자체 설정의 VanillaDerivation 날씨 엔진을 사용했다. 기본 Simulator 엔진에서는 테스트가 시각을 밤으로 건너뛴 뒤 시간이 일시정지 상태에 머물렀고, 그 구성의 전체 동작은 확인하지 못했다.
 
-CE 단독과 두 모드 동시 실행 모두 같은 사수와 표적의 좌표를 고정하고 야간에 다음 값을 측정했다.
+이전 반경 6칸 버전에서 CE 단독과 두 모드 동시 실행 모두 같은 사수와 표적의 좌표를 고정하고 야간에 다음 값을 측정했다.
 
 | CE 조회값 | 점등 | 소등 | 재점등 |
 |---|---:|---:|---:|
 | CombatGlowAtFor | 0.5 | 0 | 0.5 |
 | GetLightingShift | 0.5 | 1.0 | 0.5 |
 
-이는 CE가 사격 계산에 사용하는 어둠 페널티 측정값이다. 실탄 명중 비율을 측정한 값은 아니다. 깨끗한 Git 내보내기에서 다시 빌드한 DLL의 SHA-256은 동봉 파일과 같은 `24756D313EAF64E8926B2C7A44BFC8072B53396310C4B8F35A0561FAD12143C5`였다.
+이는 CE가 사격 계산에 사용하는 어둠 페널티 측정값이다. 실탄 명중 비율을 측정한 값은 아니다. 이전 반경 6칸 버전의 깨끗한 Git 내보내기에서 다시 빌드한 DLL의 SHA-256은 `24756D313EAF64E8926B2C7A44BFC8072B53396310C4B8F35A0561FAD12143C5`였다.
+
+## 자동 줌과 연동한 끝점 광원
+
+최신 빌드는 기본 지름 4칸에 대해 물리적 반경 2칸을 사용한다. RimWorld 1.6의 광원 탐색은 중심 셀의 거리를 1부터 세므로 `CompGlower.GlowRadius`에는 1을 더한다. 무보정 반경 2를 시도했을 때는 인접 셀 조도가 0이었고, 아래는 이 보정을 적용한 최종 빌드의 측정값이다.
+
+탐조등 하나를 15칸 앞에 고정하고, 현지 시각 1시와 하늘 조도 0에서 측정했다. 같은 사수에게 CE 고급 야간투시경을 실제로 착용시켜 전후를 비교했다. 대각 한 칸은 좌표 차이 (1, 1)이다.
+
+| 광점 기준 위치 | 지면 조도 | CE 전투 조도 | 맨눈 페널티 | 고급 야간투시경 페널티 |
+|---|---:|---:|---:|---:|
+| 중심 | 0.5 | 0.500 | 0.500 | 0.200 |
+| 축 방향 한 칸 | 0.5 | 0.355 | 0.645 | 0.258 |
+| 대각 한 칸 | 0.5 | 0.250 | 0.750 | 0.300 |
+| 축 방향 두 칸 | 0 | 0.145 | 0.855 | 0.342 |
+| 축 방향 세 칸 | 0 | 0 | 1.000 | 0.400 |
+
+CE 16.7.4.0은 표적 셀과 주변 8셀의 조도를 가중평균하고 밤에는 0.5로 제한한다. 사수의 최종 야간시야 효율을 N, 전투 조도를 G라 하면 어둠 페널티는 max((1−G)(1−N), 0)이다. 실제 명중 확률은 이 수치와 별개다. 기본 등급 단안경의 효율은 0.4, 고급 고글은 0.6이다.
+
+AO 기본 Simulator의 자연 시간 재시험은 맵 생성까지 진행했지만 420초 제한 내에 조명 시험이 시작되지 않았다. 초기 예보 준비 자체에 최대 600초를 허용하는 모드이므로 이 결과만으로 비호환이라고 판단할 수 없다. 더 긴 기본 엔진 재현은 PowerShell에서 `.\Tests\Runtime\Run-Runtime.ps1 -Case ao -TimeoutSeconds 1200`으로 실행할 수 있다. 별도 기하 테스트 실행 파일은 이번 실행에서 Windows 애플리케이션 제어가 차단했다. 실제 게임 시나리오의 60칸 광원 반경·벽 차폐 검사와 CE 광원 테스트는 통과했다.
 
 ## 실행 방법
 
@@ -37,6 +55,7 @@ $geometry = Join-Path $env:TEMP 'DirectedSearchlights-geometry'
 dotnet build .\Tests\Geometry\GeometryTests.csproj -c Release -o $geometry
 dotnet (Join-Path $geometry 'GeometryTests.dll')
 .\Tests\Scenarios\Run-Scenarios.ps1
+.\Tests\Optics\Run-Optics.ps1
 .\Tests\Runtime\Run-Runtime.ps1 -Case vanilla
 .\Tests\Runtime\Run-Runtime.ps1 -Case ce
 .\Tests\Runtime\Run-Runtime.ps1 -Case ao -UseVanillaWeather

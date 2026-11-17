@@ -60,6 +60,10 @@ static class Program
         Check(BeamGrid.HalfAngle(30f, 2f) < BeamGrid.HalfAngle(30f, 6f),
             "diameter changes footprint");
         var clip30 = new HashSet<(int, int)> { (0, 30) };
+        Check(Math.Abs(BeamGrid.SpotRadius(60, 4, 60) - 2f) < 0.001f &&
+              Math.Abs(BeamGrid.SpotRadius(60, 4, 30) - 1f) < 0.001f &&
+              Math.Abs(BeamGrid.SpotRadius(60, 6, 60) - 3f) < 0.001f &&
+              BeamGrid.SpotRadius(60, 2, 1) == 0.5f, "endpoint radius follows width and obstruction distance");
         Check(Math.Abs(Trace(0f, 1f, 60f, clip30, out x, out z) - 29.5f) < 0.001f,
             "range 60 beam clips at wall 30");
         if (failures != 0) Environment.Exit(1);

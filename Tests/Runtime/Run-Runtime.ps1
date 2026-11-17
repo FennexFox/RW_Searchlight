@@ -51,6 +51,7 @@ try {
     $log = Join-Path $profile 'Player.log'
     $exe = Join-Path $resolvedGame 'RimWorldWin64.exe'
     $argLine = '-quicktest -savedatafolder="' + $profile + '" -ds-result="' + $result + '" -logFile "' + $log + '" -screen-width 1280 -screen-height 800'
+    if ($Case -in 'ao','both' -and -not $UseVanillaWeather) { $argLine += ' -ds-natural-time' }
     if ($NoReload) { $argLine += ' -ds-no-reload' }
     Write-Output "Profile: $profile"
     Write-Output "Mods: $($mods -join ', ')"

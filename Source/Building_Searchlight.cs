@@ -216,19 +216,25 @@ namespace DirectedSearchlights
                 beam.Reaches(lockedTarget.Position))
                 cell = lockedTarget.Position;
             if (!cell.IsValid) { RemoveSpot(); return; }
-            if (lightSpot != null && lightSpot.Spawned && lightSpot.Position == cell) return;
-            ThingDef spotDef = DefDatabase<ThingDef>.GetNamedSilentFail("DS_LightSpot");
-            if (spotDef == null) return;
             if (lightSpot == null || lightSpot.Destroyed)
-                lightSpot = ThingMaker.MakeThing(spotDef);
+                lightSpot = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("DS_LightSpot"));
+            CompGlower glower = lightSpot.TryGetComp<CompGlower>();
+            // RimWorld 1.6 starts the glow flood at distance 100 (one cell), even
+            // at the source. Convert our physical radius to the grid's distance.
+            float radius = 1f + BeamGrid.SpotRadius(aimRange, SearchlightSettings.Diameter, Position.DistanceTo(cell));
             if (lightSpot.Spawned)
             {
-                CompGlower glower = lightSpot.TryGetComp<CompGlower>();
-                if (glower != null) Map.glowGrid.DeRegisterGlower(glower);
+                if (lightSpot.Position == cell && Mathf.Abs(glower.GlowRadius - radius) < 0.02f) return;
+                Map.glowGrid.DeRegisterGlower(glower);
                 lightSpot.Position = cell;
-                if (glower != null) Map.glowGrid.RegisterGlower(glower);
+                glower.GlowRadius = radius;
+                Map.glowGrid.RegisterGlower(glower);
             }
-            else GenSpawn.Spawn(lightSpot, cell, Map, WipeMode.Vanish);
+            else
+            {
+                glower.GlowRadius = radius;
+                GenSpawn.Spawn(lightSpot, cell, Map, WipeMode.Vanish);
+            }
         }
 
         private void RemoveSpot()

@@ -77,10 +77,10 @@ namespace SearchlightRuntimeHarness
                 try { Setup(); }
                 catch (Exception ex) { Fail("setup-update: " + ex); }
             }
-            if (phase > 0 && phase < 7 && Clock.ElapsedMilliseconds - lastStallLogMs > 15000)
+            if (phase < 7 && Clock.ElapsedMilliseconds - lastStallLogMs > 15000)
             {
                 lastStallLogMs = Clock.ElapsedMilliseconds;
-                Write("progress; phase=" + phase + "; tick=" + Find.TickManager.TicksGame + "; speed=" + Find.TickManager.CurTimeSpeed + "; elapsedMs=" + Clock.ElapsedMilliseconds);
+                Write("progress; phase=" + phase + "; state=" + Current.ProgramState + "; tick=" + Find.TickManager.TicksGame + "; hour=" + (Find.CurrentMap == null ? -1 : GenLocalDate.HourOfDay(Find.CurrentMap)) + "; speed=" + Find.TickManager.CurTimeSpeed + "; elapsedMs=" + Clock.ElapsedMilliseconds);
             }
             if (phase == 7 && !reloadRequested)
             {
@@ -148,10 +148,15 @@ namespace SearchlightRuntimeHarness
             var shooterHold = JobMaker.MakeJob(JobDefOf.Wait);
             shooterHold.expiryInterval = 5000;
             shooter.jobs.StartJob(shooterHold, JobCondition.InterruptForced);
-            var ticks = Find.TickManager.TicksGame;
-            for (int i = 0; i < 24 && GenLocalDate.HourOfDay(map) != 1; ++i)
-                Find.TickManager.DebugSetTicksGame(Find.TickManager.TicksGame + 2500);
-            Write("setup; origin=" + origin + "; target=" + target.Position + "; localHour=" + GenLocalDate.HourOfDay(map) + "; skyGlow=" + map.skyManager.CurSkyGlow + "; tickShift=" + (Find.TickManager.TicksGame - ticks) + "; power=" + PowerSnapshot());
+            int tickShift = 0;
+            if (!GenCommandLine.CommandLineArgPassed("ds-natural-time"))
+            {
+                var ticks = Find.TickManager.TicksGame;
+                for (int i = 0; i < 24 && GenLocalDate.HourOfDay(map) != 1; ++i)
+                    Find.TickManager.DebugSetTicksGame(Find.TickManager.TicksGame + 2500);
+                tickShift = Find.TickManager.TicksGame - ticks;
+            }
+            Write("setup; origin=" + origin + "; target=" + target.Position + "; localHour=" + GenLocalDate.HourOfDay(map) + "; skyGlow=" + map.skyManager.CurSkyGlow + "; tickShift=" + tickShift + "; power=" + PowerSnapshot());
             Advance(1);
         }
 
@@ -201,8 +206,8 @@ namespace SearchlightRuntimeHarness
             Check(target.Position != origin + new IntVec3(12, 0, 0), "hostile pawn moved");
             var spot = (IntVec3)Read(lamps[0], "SpotCell");
             Write("illumination; targetGlow=" + Find.CurrentMap.glowGrid.GroundGlowAt(target.Position, ignoreSky: true) + "; spotGlow=" + Find.CurrentMap.glowGrid.GroundGlowAt(spot, ignoreSky: true) + "; spot=" + spot + "; target=" + target.Position);
-            Check(Find.CurrentMap.glowGrid.GroundGlowAt(spot, ignoreSky: true) > 0.01f, "spot ground illuminated at night");
-            Check(Find.CurrentMap.glowGrid.GroundGlowAt(target.Position, ignoreSky: true) > 0.01f, "target ground illuminated at night");
+            Check(Find.CurrentMap.glowGrid.GroundGlowAt(spot, ignoreSky: true) > 0.01f, "spot ground artificially illuminated");
+            Check(Find.CurrentMap.glowGrid.GroundGlowAt(target.Position, ignoreSky: true) > 0.01f, "target ground artificially illuminated");
             var hold = JobMaker.MakeJob(JobDefOf.Wait);
             hold.expiryInterval = 3000;
             target.jobs.StartJob(hold, JobCondition.InterruptForced);
@@ -275,9 +280,13 @@ namespace SearchlightRuntimeHarness
             if (CaptureCE("restored", out ceRestoredGlow, out ceRestoredShift))
             {
                 Check(shooter.Position == ceShooterAnchor && target.Position == ceTargetAnchor, "CE shooter and target stayed fixed across OFF/ON readings");
-                Check(ceOffGlow < ceOnGlow, "CE combat glow rises with searchlights");
-                Check(ceOffShift > ceOnShift, "CE lighting penalty falls with searchlights");
-                Check(ceRestoredGlow > ceOffGlow, "CE combat glow returns after flick on");
+                if (Find.CurrentMap.skyManager.CurSkyGlow < 0.01f)
+                {
+                    Check(ceOffGlow < ceOnGlow, "CE combat glow rises with searchlights");
+                    Check(ceOffShift > ceOnShift, "CE lighting penalty falls with searchlights");
+                    Check(ceRestoredGlow > ceOffGlow, "CE combat glow returns after flick on");
+                }
+                else Write("CE night lighting comparisons skipped in daylight; skyGlow=" + Find.CurrentMap.skyManager.CurSkyGlow);
             }
             Advance(7);
         }

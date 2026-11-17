@@ -12,6 +12,13 @@ namespace DirectedSearchlights
             return Math.Min(12f, (float)(Math.Atan2(diameter * 0.5f, range) * 180.0 / Math.PI));
         }
 
+        // Match the cross-section at the illuminated cell, including clipped beams.
+        internal static float SpotRadius(float range, float diameter, float spotDistance)
+        {
+            double slope = Math.Tan(HalfAngle(range, diameter) * Math.PI / 180.0);
+            return Math.Max(0.5f, (float)(Math.Min(spotDistance, range) * slope));
+        }
+
         internal static float GradientAlpha(float u, float v)
         {
             float lateral = Math.Abs(u * 2f - 1f);

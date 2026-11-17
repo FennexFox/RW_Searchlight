@@ -128,7 +128,7 @@
     <hideInspect>true</hideInspect>
     <comps>
       <li Class="CompProperties_Glower">
-        <glowRadius>6</glowRadius>
+        <glowRadius>3</glowRadius>
         <glowColor>(245,225,185,0)</glowColor>
       </li>
     </comps>

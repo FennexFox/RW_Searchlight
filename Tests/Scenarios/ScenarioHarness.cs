@@ -142,6 +142,8 @@ namespace SearchlightScenarioHarness
             Check(turret.LockedTarget == target, "60-cell target acquired");
             Check(turret.AimRange == 60f && turret.SpotCell == target.Position,
                 "60-cell beam reaches and illuminates the acquired pawn");
+            var spot = target.Position.GetThingList(Find.CurrentMap).Single(t => t.def.defName == "DS_LightSpot");
+            Check(Math.Abs(spot.TryGetComp<CompGlower>().GlowRadius - 3f) < 0.01f, "four-tile beam has physical radius two plus grid origin offset");
             Write("range60 PASS; locked=" + turret.LockedTarget + "; acquisitions=" + turret.AcquisitionCount);
             target.DeSpawn();
             GenSpawn.Spawn(target, origin + new IntVec3(61, 0, 0), Find.CurrentMap);
@@ -168,6 +170,9 @@ namespace SearchlightScenarioHarness
             Check(turret.LockedTarget == null, "turret cannot lock through wall");
             Check(tower.LockedTarget == target, "tower locks through wall");
             Check(tower.SpotCell.IsValid && tower.SpotCell.x < origin.x + 5, "tower illuminates the near side of the wall");
+            var spot = tower.SpotCell.GetThingList(Find.CurrentMap).Single(t => t.def.defName == "DS_LightSpot");
+            float radius = spot.TryGetComp<CompGlower>().GlowRadius;
+            Check(radius >= 1.5f && radius < 2.5f, "clipped beam has a narrower illumination footprint");
             Write("wall PASS; turretSpot=" + turret.SpotCell + "; towerSpot=" + tower.SpotCell);
             blockers[0].Destroy(DestroyMode.Vanish);
             blockers.RemoveAt(0);
