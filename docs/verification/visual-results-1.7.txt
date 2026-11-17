@@ -1,0 +1,6 @@
+setup; game=1.7.5011; map=(250, 1, 250); origin=(90, 0, 125); diameter=4
+18-tiles.png; aim=18; spot=18; skyGlow=0; groundGlow=0.5
+60-tiles.png; aim=60; spot=60; skyGlow=0; groundGlow=0.5
+60-tiles-tip.png; aim=60; spot=60; skyGlow=0; groundGlow=0.5
+wall.png; aim=60; spot=29; skyGlow=0; groundGlow=0.5
+PASS

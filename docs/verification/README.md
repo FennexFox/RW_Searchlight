@@ -2,6 +2,20 @@
 
 ## 2026-11-18: 둥근 빔 끝과 1.7 빌드
 
+### 스마트 앱 컨트롤 해제 후 재시험
+
+사용자가 차단을 해제한 뒤 같은 테스트를 다시 실행했다. 아래의 초기 차단 기록은 이 재시험으로 해소됐다.
+
+- `dotnet run --project Tests/Geometry/GeometryTests.csproj -c Release`: `Geometry checks passed.` 정상 종료.
+- `.\Tests\Visual\Run-Visual.ps1`: RimWorld 1.7.5011에서 `PASS`, 정상 종료. 테스트 하네스 빌드도 경고/오류 0.
+- 야간 `skyGlow=0`, 18칸·60칸 표적 셀의 `GroundGlowAt(ignoreSky: true)=0.5`.
+- 60칸 조준 중 30칸에 벽을 세우면 광원 위치가 29칸으로 이동했다. 캡처에서 빔이 벽 앞에서 잘리고 벽 뒤로 이어지지 않는 것을 확인했다.
+- 60칸 끝점 확대 화면에서 둥근 끝과 부드러운 감쇠를 확인했다. [끝점 화면](rounded-tip-1.7.jpg), [벽 차폐 화면](rounded-wall-1.7.jpg), [수치 기록](visual-results-1.7.txt).
+- 별도 프로필: `%TEMP%\SearchlightVisual-f04020603ca941a49f77bd979a6309c0`. 원본 PNG는 이 폴더에 있으며 문서에는 축소 JPEG를 보관했다.
+- 이 재시험은 Core + 탐조등의 고정 조준 및 렌더링 시험이다. CE/AO 조합, 이동 표적, 저장 복원, 전력망 운용 전체를 1.7에서 다시 검증한 것은 아니다.
+
+### 초기 빌드 및 차단 기록
+
 현재 설치본은 RimWorld 1.7.5011 rev24다. 사용자 요청에 따라 동일한 C# 소스를 새 설치본의 호환 어셈블리로 빌드했다. `build.ps1`은 1.6/1.7을 감지하고 각각 별도 DLL을 출력하며, 1.7의 Def는 1.6 원본에서 복사한다.
 
 - `.\build.ps1`: 1.7 빌드 성공, 경고/오류 0.
