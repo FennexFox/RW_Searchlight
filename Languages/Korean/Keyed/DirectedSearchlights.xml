@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <DS_ModeFixed>고정</DS_ModeFixed>
+  <DS_ModeSweep>회전 조사</DS_ModeSweep>
+  <DS_ModeAutomatic>자동</DS_ModeAutomatic>
+  <DS_SelectTarget>목표 선택</DS_SelectTarget>
+  <DS_ClearTarget>목표 해제</DS_ClearTarget>
+  <DS_SetDirection>방향 설정</DS_SetDirection>
+</LanguageData>

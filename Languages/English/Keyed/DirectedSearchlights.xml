@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <DS_ModeFixed>Fixed</DS_ModeFixed>
+  <DS_ModeSweep>Sweep</DS_ModeSweep>
+  <DS_ModeAutomatic>Automatic</DS_ModeAutomatic>
+  <DS_SelectTarget>Select target</DS_SelectTarget>
+  <DS_ClearTarget>Clear target</DS_ClearTarget>
+  <DS_SetDirection>Set direction</DS_SetDirection>
+</LanguageData>

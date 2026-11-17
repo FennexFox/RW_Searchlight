@@ -1,0 +1,355 @@
+using System;
+using System.Collections.Generic;
+using RimWorld;
+using UnityEngine;
+using Verse;
+
+namespace DirectedSearchlights
+{
+    public enum SearchlightMode
+    {
+        Fixed,
+        Sweep,
+        Automatic
+    }
+
+    public class Building_Searchlight : Building
+    {
+        private const float BeamRange = 60f;
+        private const float SweepLimit = 45f;
+        private const float SweepDegreesPerTick = 0.4f;
+        private const int AcquireInterval = 30;
+        private const float TurnDegreesPerTick = 2f;
+        private const float RangeCellsPerTick = 0.6f;
+
+        private SearchlightMode mode = SearchlightMode.Automatic;
+        private float fixedHeading = float.NaN;
+        private float fixedRange = BeamRange;
+        private float aimHeading;
+        private float aimRange = BeamRange;
+        private float patrolHeading;
+        private float sweepOffset;
+        private int sweepDirection = 1;
+        private Pawn manualTarget;
+        private Pawn lockedTarget;
+        private Thing lightSpot;
+        private BeamField beam;
+        private CompPowerTrader power;
+        private CompFlickable flick;
+        private int lastAcquireTick = -1;
+        private int acquisitionCount;
+        private static Graphic headGraphic;
+
+        public SearchlightMode CurrentMode => mode;
+        public Pawn LockedTarget => lockedTarget;
+        public float AimHeading => aimHeading;
+        public float AimRange => aimRange;
+        public IntVec3 SpotCell => lightSpot != null && lightSpot.Spawned ? lightSpot.Position : IntVec3.Invalid;
+        public bool IsOperating => Spawned && power != null && power.PowerOn &&
+            (flick == null || flick.SwitchIsOn) && (!RequiresOpenSky || !Position.Roofed(Map));
+        public int AcquisitionCount => acquisitionCount;
+        public int LastAcquireTick => lastAcquireTick;
+
+        protected virtual bool DetectThroughWalls => false;
+        protected virtual bool RequiresOpenSky => false;
+
+        public override void SpawnSetup(Map map, bool respawningAfterLoad)
+        {
+            base.SpawnSetup(map, respawningAfterLoad);
+            power = GetComp<CompPowerTrader>();
+            flick = GetComp<CompFlickable>();
+            if (float.IsNaN(fixedHeading))
+                fixedHeading = Rotation.AsAngle;
+            if (beam == null)
+                beam = new BeamField();
+            map.GetComponent<SearchlightMap>()?.Register(this);
+            if (!respawningAfterLoad) RefreshBeamAndSpot();
+        }
+
+        public override void PostMapInit()
+        {
+            base.PostMapInit();
+            RefreshBeamAndSpot();
+        }
+
+        public override void DeSpawn(DestroyMode mode = DestroyMode.Vanish)
+        {
+            Map oldMap = Map;
+            oldMap?.GetComponent<SearchlightMap>()?.Unregister(this);
+            ClearVisuals();
+            beam?.Dispose();
+            beam = null;
+            base.DeSpawn(mode);
+        }
+
+        public override void ExposeData()
+        {
+            base.ExposeData();
+            Scribe_Values.Look(ref mode, "searchlightMode", SearchlightMode.Automatic);
+            Scribe_Values.Look(ref fixedHeading, "searchlightFixedHeading", float.NaN);
+            Scribe_Values.Look(ref fixedRange, "searchlightFixedRange", BeamRange);
+            Scribe_Values.Look(ref aimHeading, "searchlightAimHeading", 0f);
+            Scribe_Values.Look(ref aimRange, "searchlightAimRange", BeamRange);
+            Scribe_Values.Look(ref patrolHeading, "searchlightPatrolHeading", fixedHeading);
+            Scribe_Values.Look(ref sweepOffset, "searchlightSweepOffset", 0f);
+            Scribe_Values.Look(ref sweepDirection, "searchlightSweepDirection", 1);
+            Scribe_References.Look(ref manualTarget, "searchlightManualTarget");
+            Scribe_References.Look(ref lockedTarget, "searchlightLockedTarget");
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                if (!Enum.IsDefined(typeof(SearchlightMode), mode)) mode = SearchlightMode.Automatic;
+                sweepOffset = Mathf.Clamp(sweepOffset, -SweepLimit, SweepLimit);
+                fixedRange = Mathf.Clamp(fixedRange, 1f, BeamRange);
+                aimRange = Mathf.Clamp(aimRange, 0f, BeamRange);
+                sweepDirection = sweepDirection < 0 ? -1 : 1;
+                lastAcquireTick = -1;
+            }
+        }
+
+        protected override void Tick()
+        {
+            base.Tick();
+            if (!IsOperating)
+            {
+                lockedTarget = null;
+                ClearVisuals();
+                return;
+            }
+
+            if (manualTarget != null && !ValidTarget(manualTarget)) manualTarget = null;
+            if (mode != SearchlightMode.Fixed &&
+                (Find.TickManager.TicksGame + thingIDNumber) % AcquireInterval == 0)
+            {
+                AcquireTarget();
+                lastAcquireTick = Find.TickManager.TicksGame;
+                acquisitionCount++;
+            }
+            if (lockedTarget != null && !ValidTarget(lockedTarget)) lockedTarget = null;
+
+            float desiredHeading;
+            float desiredRange;
+            if (manualTarget != null || lockedTarget != null)
+            {
+                Pawn target = manualTarget ?? lockedTarget;
+                desiredHeading = HeadingTo(target.Position);
+                desiredRange = Mathf.Min(BeamRange, Mathf.Sqrt(target.Position.DistanceToSquared(Position)));
+            }
+            else if (mode == SearchlightMode.Sweep)
+            {
+                sweepOffset += SweepDegreesPerTick * sweepDirection;
+                if (sweepOffset >= SweepLimit) { sweepOffset = SweepLimit; sweepDirection = -1; }
+                else if (sweepOffset <= -SweepLimit) { sweepOffset = -SweepLimit; sweepDirection = 1; }
+                desiredHeading = fixedHeading + sweepOffset;
+                desiredRange = fixedRange;
+            }
+            else if (mode == SearchlightMode.Automatic)
+            {
+                patrolHeading = Mathf.Repeat(patrolHeading + SweepDegreesPerTick, 360f);
+                desiredHeading = patrolHeading;
+                desiredRange = fixedRange;
+            }
+            else { desiredHeading = fixedHeading; desiredRange = fixedRange; }
+
+            aimHeading = Mathf.Repeat(Mathf.MoveTowardsAngle(aimHeading, desiredHeading, TurnDegreesPerTick), 360f);
+            aimRange = Mathf.MoveTowards(aimRange, desiredRange, RangeCellsPerTick);
+            RefreshBeamAndSpot();
+        }
+
+        private void AcquireTarget()
+        {
+            if (ValidTarget(manualTarget))
+            {
+                lockedTarget = manualTarget;
+                return;
+            }
+            manualTarget = null;
+            if (ValidTarget(lockedTarget)) return;
+            Pawn best = null;
+            int bestDistance = int.MaxValue;
+            bool bestVisible = false;
+            foreach (Pawn pawn in Map.mapPawns.AllPawnsSpawned)
+            {
+                if (!ValidTarget(pawn)) continue;
+                if (mode == SearchlightMode.Sweep &&
+                    Mathf.Abs(Mathf.DeltaAngle(fixedHeading, HeadingTo(pawn.Position))) > SweepLimit)
+                    continue;
+                int dx = pawn.Position.x - Position.x;
+                int dz = pawn.Position.z - Position.z;
+                int distance = dx * dx + dz * dz;
+                bool visible = !DetectThroughWalls || BeamField.Clear(Map, Position, pawn.Position);
+                if (best == null || (visible && !bestVisible) ||
+                    (visible == bestVisible && (distance < bestDistance ||
+                    (distance == bestDistance && pawn.thingIDNumber < best.thingIDNumber))))
+                {
+                    best = pawn;
+                    bestDistance = distance;
+                    bestVisible = visible;
+                }
+            }
+            lockedTarget = best;
+        }
+
+        private bool ValidTarget(Pawn pawn)
+        {
+            if (pawn == null || pawn.Destroyed || !pawn.Spawned || pawn.Map != Map || pawn.Dead ||
+                pawn.Downed || pawn.IsPsychologicallyInvisible() || pawn.Fogged() ||
+                !pawn.HostileTo(Faction.OfPlayer)) return false;
+            int dx = pawn.Position.x - Position.x;
+            int dz = pawn.Position.z - Position.z;
+            if (dx * dx + dz * dz > BeamRange * BeamRange) return false;
+            if (DetectThroughWalls)
+                return !pawn.Position.Roofed(Map);
+            return BeamField.Clear(Map, Position, pawn.Position);
+        }
+
+        private float HeadingTo(IntVec3 cell)
+        {
+            return Mathf.Atan2(cell.x - Position.x, cell.z - Position.z) * Mathf.Rad2Deg;
+        }
+
+        private void RefreshBeamAndSpot()
+        {
+            if (!IsOperating || beam == null) { ClearVisuals(); return; }
+            beam.Update(Map, Position, aimHeading, aimRange, SearchlightSettings.Diameter);
+            IntVec3 cell = beam.CenterCell;
+            if (lockedTarget != null && lockedTarget.Spawned && lockedTarget.Map == Map &&
+                beam.Reaches(lockedTarget.Position))
+                cell = lockedTarget.Position;
+            if (!cell.IsValid) { RemoveSpot(); return; }
+            if (lightSpot != null && lightSpot.Spawned && lightSpot.Position == cell) return;
+            ThingDef spotDef = DefDatabase<ThingDef>.GetNamedSilentFail("DS_LightSpot");
+            if (spotDef == null) return;
+            if (lightSpot == null || lightSpot.Destroyed)
+                lightSpot = ThingMaker.MakeThing(spotDef);
+            if (lightSpot.Spawned)
+            {
+                CompGlower glower = lightSpot.TryGetComp<CompGlower>();
+                if (glower != null) Map.glowGrid.DeRegisterGlower(glower);
+                lightSpot.Position = cell;
+                if (glower != null) Map.glowGrid.RegisterGlower(glower);
+            }
+            else GenSpawn.Spawn(lightSpot, cell, Map, WipeMode.Vanish);
+        }
+
+        private void RemoveSpot()
+        {
+            if (lightSpot != null && !lightSpot.Destroyed)
+                lightSpot.Destroy(DestroyMode.Vanish);
+            lightSpot = null;
+        }
+
+        private void ClearVisuals()
+        {
+            RemoveSpot();
+            beam?.Update(Map, Position, aimHeading, 0f, SearchlightSettings.Diameter);
+        }
+
+        internal void DrawBeam()
+        {
+            if (IsOperating) beam?.Draw();
+        }
+
+        internal bool BeamVisibleIn(CellRect view)
+        {
+            return IsOperating && beam != null && beam.VisibleIn(view);
+        }
+
+        internal void DisposeRenderResources()
+        {
+            beam?.Dispose();
+            beam = null;
+        }
+
+        protected override void DrawAt(Vector3 drawLoc, bool flip = false)
+        {
+            base.DrawAt(drawLoc, flip);
+            if (headGraphic == null)
+                headGraphic = GraphicDatabase.Get<Graphic_Single>(
+                    "Things/Building/Searchlight/SearchlightHead", ShaderDatabase.Cutout);
+            headGraphic.Draw(drawLoc + Vector3.up * 0.03f, Rot4.North, this, aimHeading);
+        }
+
+        public void SelectManualTarget(Pawn pawn)
+        {
+            if (pawn != null && !CanDesignate(pawn)) return;
+            manualTarget = pawn;
+            lockedTarget = pawn;
+            lastAcquireTick = -1;
+        }
+
+        private bool CanDesignate(Pawn pawn) => mode != SearchlightMode.Fixed && ValidTarget(pawn) &&
+            (mode != SearchlightMode.Sweep ||
+                Mathf.Abs(Mathf.DeltaAngle(fixedHeading, HeadingTo(pawn.Position))) <= SweepLimit);
+
+        public void SetMode(SearchlightMode next)
+        {
+            mode = next;
+            manualTarget = null;
+            lockedTarget = null;
+            if (next == SearchlightMode.Sweep) { sweepOffset = 0f; sweepDirection = 1; }
+            lastAcquireTick = -1;
+        }
+
+        public void SetAimCell(IntVec3 cell)
+        {
+            if (!Spawned || !cell.InBounds(Map) || cell == Position) return;
+            fixedHeading = HeadingTo(cell);
+            patrolHeading = fixedHeading;
+            fixedRange = Mathf.Clamp(Mathf.Sqrt(cell.DistanceToSquared(Position)), 1f, BeamRange);
+        }
+
+        public override IEnumerable<Gizmo> GetGizmos()
+        {
+            foreach (Gizmo gizmo in base.GetGizmos()) yield return gizmo;
+            foreach (SearchlightMode choice in Enum.GetValues(typeof(SearchlightMode)))
+            {
+                SearchlightMode selected = choice;
+                yield return new Command_Action
+                {
+                    defaultLabel = ("DS_Mode" + selected).Translate() + (mode == selected ? " ✓" : ""),
+                    icon = selected == SearchlightMode.Fixed ? TexCommand.HoldOpen :
+                        selected == SearchlightMode.Sweep ? TexCommand.SquadAttack : TexCommand.FireAtWill,
+                    action = () => SetMode(selected)
+                };
+            }
+            if (mode != SearchlightMode.Fixed)
+                yield return new Command_Target
+            {
+                defaultLabel = "DS_SelectTarget".Translate(),
+                icon = TexCommand.Attack,
+                targetingParams = new TargetingParameters
+                {
+                    canTargetPawns = true,
+                    canTargetBuildings = false,
+                    canTargetAnimals = true,
+                    canTargetLocations = false,
+                    validator = target => target.Thing is Pawn pawn && CanDesignate(pawn)
+                },
+                action = target => SelectManualTarget(target.Thing as Pawn)
+            };
+            if (manualTarget != null)
+                yield return new Command_Action
+                {
+                    defaultLabel = "DS_ClearTarget".Translate(),
+                    icon = TexCommand.CannotShoot,
+                    action = () => SelectManualTarget(null)
+                };
+            yield return new Command_Target
+            {
+                defaultLabel = "DS_SetDirection".Translate(),
+                icon = TexCommand.HoldOpen,
+                targetingParams = TargetingParameters.ForCell(),
+                action = target =>
+                {
+                    SetAimCell(target.Cell);
+                }
+            };
+        }
+    }
+
+    public class Building_SearchlightTower : Building_Searchlight
+    {
+        protected override bool DetectThroughWalls => true;
+        protected override bool RequiresOpenSky => true;
+    }
+}

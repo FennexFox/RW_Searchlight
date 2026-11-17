@@ -9,6 +9,7 @@
     <OutputPath>../1.6/Assemblies/</OutputPath>
     <DebugType>none</DebugType>
     <Deterministic>true</Deterministic>
+    <RimWorldDir Condition="'$(RimWorldDir)' == ''">$(MSBuildProjectDirectory)/../../..</RimWorldDir>
     <ManagedDir>$(RimWorldDir)/RimWorldWin64_Data/Managed</ManagedDir>
   </PropertyGroup>
   <ItemGroup>

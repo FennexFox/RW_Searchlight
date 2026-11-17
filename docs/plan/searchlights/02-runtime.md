@@ -38,12 +38,12 @@
 
 ## Progress
 
-- Not started.
+- Delivered both buildings, optics, tracking, endpoint glow and localized controls.
 
 ## Decision log
 
-- No decisions recorded yet.
+- Reuse an Ethereal Thing with a unique ID. Register glowers again after moving. Upload meshes in the main-thread draw callback.
 
 ## Outcomes / Retrospective
 
-- Not completed yet.
+- Release build, packaged Def and asset checks, geometry tests and isolated vanilla save/reload passed.

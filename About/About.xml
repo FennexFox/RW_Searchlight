@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>Directed Searchlights</name>
+  <author>Directed Searchlights contributors</author>
+  <packageId>DirectedSearchlights.Searchlight</packageId>
+  <description>Adds powered, directional searchlights for illuminating the colony.</description>
+  <supportedVersions>
+    <li>1.6</li>
+  </supportedVersions>
+</ModMetaData>

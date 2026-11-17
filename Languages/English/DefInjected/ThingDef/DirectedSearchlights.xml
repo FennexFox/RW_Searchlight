@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <DS_SearchlightTurret.label>searchlight turret</DS_SearchlightTurret.label>
+  <DS_SearchlightTurret.description>A powered directional searchlight that can be aimed to illuminate distant ground.</DS_SearchlightTurret.description>
+  <DS_SearchlightTower.label>searchlight tower</DS_SearchlightTower.label>
+  <DS_SearchlightTower.description>A tall, high-powered directional searchlight. Its elevated mount must remain outdoors.</DS_SearchlightTower.description>
+  <DS_LightSpot.label>searchlight illumination</DS_LightSpot.label>
+</LanguageData>
