@@ -141,12 +141,17 @@ namespace DirectedSearchlights
             float headingRadians = heading * Mathf.Deg2Rad;
             float forwardX = Mathf.Sin(headingRadians);
             float forwardZ = Mathf.Cos(headingRadians);
+            float halfAngleRadians = halfAngle * Mathf.Deg2Rad;
+            float slope = Mathf.Tan(halfAngleRadians);
+            float capDepth = range * slope;
+            // Enclose the full visual sector, including radial extrema between the sides.
+            float boundsRayLength = (range + capDepth) / Mathf.Cos(halfAngleRadians);
             float leftRadians = (heading - halfAngle) * Mathf.Deg2Rad;
             float rightRadians = (heading + halfAngle) * Mathf.Deg2Rad;
-            float leftX = origin.x + range * Mathf.Sin(leftRadians);
-            float leftZ = origin.z + range * Mathf.Cos(leftRadians);
-            float rightX = origin.x + range * Mathf.Sin(rightRadians);
-            float rightZ = origin.z + range * Mathf.Cos(rightRadians);
+            float leftX = origin.x + boundsRayLength * Mathf.Sin(leftRadians);
+            float leftZ = origin.z + boundsRayLength * Mathf.Cos(leftRadians);
+            float rightX = origin.x + boundsRayLength * Mathf.Sin(rightRadians);
+            float rightZ = origin.z + boundsRayLength * Mathf.Cos(rightRadians);
             int minX = Mathf.FloorToInt(Mathf.Min(origin.x, Mathf.Min(leftX, rightX))) - 1;
             int maxX = Mathf.CeilToInt(Mathf.Max(origin.x, Mathf.Max(leftX, rightX))) + 1;
             int minZ = Mathf.FloorToInt(Mathf.Min(origin.z, Mathf.Min(leftZ, rightZ))) - 1;
@@ -160,9 +165,9 @@ namespace DirectedSearchlights
             // Corner event rays preserve sharp occlusion transitions; the regular
             // rays bound visible curvature when no obstacle corner is nearby.
             angles.Clear();
-            int steps = Mathf.CeilToInt(halfAngle * 2f / AngularStep);
-            for (int i = 0; i <= steps; i++) angles.Add(-halfAngle + i * (2f * halfAngle / steps));
-            float slope = Mathf.Tan(halfAngle * Mathf.Deg2Rad);
+            int stepsPerSide = Mathf.Max(12, Mathf.CeilToInt(halfAngle / AngularStep));
+            for (int i = -stepsPerSide; i <= stepsPerSide; i++)
+                angles.Add(halfAngle * ((float)i / stepsPerSide));
             for (int x = minX; x <= maxX; x++)
             for (int z = minZ; z <= maxZ; z++)
             {
@@ -186,6 +191,7 @@ namespace DirectedSearchlights
             angles.Sort();
             vertices.Clear();
             uvs.Clear();
+            Vector3 lens = new Vector3(origin.x + 0.5f, overlayHeight, origin.z + 0.5f);
             float previous = float.NegativeInfinity;
             foreach (float relative in angles)
             {
@@ -194,22 +200,38 @@ namespace DirectedSearchlights
                 float radians = (heading + relative) * Mathf.Deg2Rad;
                 float dx = Mathf.Sin(radians);
                 float dz = Mathf.Cos(radians);
+                float u = (relative + halfAngle) / (2f * halfAngle);
+                float visualLimit = BeamGrid.VisualRayLimit(range, capDepth, u);
                 IntVec3 ignored;
-                float distance = Trace(map, origin, dx, dz, range, out ignored);
-                float u = halfAngle <= 0f ? 0.5f : (relative + halfAngle) / (2f * halfAngle);
-                vertices.Add(new Vector3(origin.x + 0.5f, overlayHeight, origin.z + 0.5f));
-                vertices.Add(new Vector3(origin.x + 0.5f + dx * distance, overlayHeight, origin.z + 0.5f + dz * distance));
+                float distance = Trace(map, origin, dx, dz, visualLimit, out ignored);
+                float bodyDistance = Mathf.Min(range, distance);
+                Vector3 direction = new Vector3(dx, 0f, dz);
+                // Split the texture interpolation at the aim distance to keep the beam body at its original brightness.
+                vertices.Add(lens);
+                vertices.Add(lens + direction * bodyDistance);
+                vertices.Add(lens + direction * distance);
                 uvs.Add(new Vector2(u, 0f));
-                uvs.Add(new Vector2(u, distance / range));
+                uvs.Add(new Vector2(u, BeamGrid.GradientV(range, visualLimit, bodyDistance)));
+                uvs.Add(new Vector2(u, BeamGrid.GradientV(range, visualLimit, distance)));
             }
-            if (vertices.Count < 4) return;
-            for (int i = 0; i < vertices.Count / 2 - 1; i++)
+            for (int a = 0; a + 5 < vertices.Count; a += 3)
             {
-                int a = i * 2;
+                // The near vertices coincide at the lens, so the body needs only one triangle.
                 triangles.Add(a);
                 triangles.Add(a + 1);
-                triangles.Add(a + 3);
-                // The two near vertices coincide at the lens. One triangle fills this sector.
+                triangles.Add(a + 4);
+                if (uvs[a + 2].y > BeamGrid.FocusV)
+                {
+                    triangles.Add(a + 1);
+                    triangles.Add(a + 2);
+                    triangles.Add(a + 5);
+                }
+                if (uvs[a + 5].y > BeamGrid.FocusV)
+                {
+                    triangles.Add(a + 1);
+                    triangles.Add(a + 5);
+                    triangles.Add(a + 4);
+                }
             }
         }
 

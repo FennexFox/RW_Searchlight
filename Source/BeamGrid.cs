@@ -5,6 +5,8 @@ namespace DirectedSearchlights
     // Pure grid traversal shared by aiming, mesh clipping and isolated tests.
     internal static class BeamGrid
     {
+        internal const float FocusV = 0.75f;
+
         internal static float HalfAngle(float range, float diameter)
         {
             if (range <= 0f) return 0f;
@@ -19,10 +21,33 @@ namespace DirectedSearchlights
             return Math.Max(0.5f, (float)(Math.Min(spotDistance, range) * slope));
         }
 
+        internal static float VisualRayLimit(float range, float capDepth, float u)
+        {
+            float lateral = u * 2f - 1f;
+            return range + capDepth * (float)Math.Sqrt(Math.Max(0f, 1f - lateral * lateral));
+        }
+
+        // Keep the focus at one texture coordinate even when a wall shortens the ray.
+        internal static float GradientV(float range, float visualLimit, float distance)
+        {
+            if (distance <= range) return FocusV * (distance / range);
+            return FocusV + (1f - FocusV) * ((distance - range) / (visualLimit - range));
+        }
+
         internal static float GradientAlpha(float u, float v)
         {
             float lateral = Math.Abs(u * 2f - 1f);
-            float radial = Math.Min(1f, v * 5f) * (1f - 0.5f * v);
+            float radial;
+            if (v <= FocusV)
+            {
+                float distance = v / FocusV;
+                radial = Math.Min(1f, distance * 5f) * (1f - 0.5f * distance);
+            }
+            else
+            {
+                float remaining = Math.Max(0f, (1f - v) / (1f - FocusV));
+                radial = 0.5f * remaining * remaining * (3f - 2f * remaining);
+            }
             float alpha = radial * (1f - lateral * lateral);
             return Math.Max(0f, Math.Min(1f, alpha));
         }

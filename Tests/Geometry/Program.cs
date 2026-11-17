@@ -38,10 +38,27 @@ static class Program
             "supercover blocks corner grazing");
         Check(Math.Abs(Trace(diagonal, diagonal, 5f, clear, out x, out z) - 5f) < 0.001f && x == 4 && z == 4,
             "clear diagonal traverses corners");
-        Check(BeamGrid.GradientAlpha(0.5f, 0f) == 0f && BeamGrid.GradientAlpha(0.5f, 1f) >= 0.49f,
-            "gradient fades source but keeps range edge visible");
-        Check(BeamGrid.GradientAlpha(0f, 0.5f) == 0f && BeamGrid.GradientAlpha(1f, 0.5f) == 0f &&
-            BeamGrid.GradientAlpha(0.5f, 0.5f) > 0.74f, "gradient fades lateral edges");
+        const float aimRange = 60f;
+        const float capDepth = 2f;
+        float visualLimit = BeamGrid.VisualRayLimit(aimRange, capDepth, 0.5f);
+        float quarterLimit = BeamGrid.VisualRayLimit(aimRange, capDepth, 0.25f);
+        Check(visualLimit == 62f && quarterLimit > aimRange && quarterLimit < visualLimit &&
+              quarterLimit == BeamGrid.VisualRayLimit(aimRange, capDepth, 0.75f) &&
+              BeamGrid.VisualRayLimit(aimRange, capDepth, 0f) == aimRange &&
+              BeamGrid.VisualRayLimit(aimRange, capDepth, 1f) == aimRange,
+            "rounded cap extends furthest at center and tapers symmetrically to the sides");
+        float midpointV = BeamGrid.GradientV(aimRange, visualLimit, 30f);
+        float focusV = BeamGrid.GradientV(aimRange, visualLimit, aimRange);
+        float capMidpointV = BeamGrid.GradientV(aimRange, visualLimit, 61f);
+        float endV = BeamGrid.GradientV(aimRange, visualLimit, visualLimit);
+        Check(BeamGrid.GradientAlpha(0.5f, 0f) == 0f &&
+              BeamGrid.GradientAlpha(0.5f, midpointV) == 0.75f &&
+              BeamGrid.GradientAlpha(0.5f, focusV) == 0.5f,
+            "gradient preserves beam body and aim brightness");
+        Check(BeamGrid.GradientAlpha(0f, midpointV) == 0f && BeamGrid.GradientAlpha(1f, midpointV) == 0f,
+            "gradient fades lateral edges");
+        Check(BeamGrid.GradientAlpha(0.5f, capMidpointV) == 0.25f && BeamGrid.GradientAlpha(0.5f, endV) == 0f,
+            "cap fades to transparent after the aim point");
         float[] ranges = { 5f, 10f, 30f, 60f };
         float[] angles = { 24f, 22.620f, 7.628f, 3.818f };
         for (int i = 0; i < ranges.Length; i++)
@@ -57,6 +74,14 @@ static class Program
         door.Clear();
         Trace(0f, 1f, 60f, door, out x, out z);
         Check(z == 60, "opening door restores range, including tile 60");
+        var capWall = new HashSet<(int, int)> { (0, 61) };
+        float clippedCap = Trace(0f, 1f, visualLimit, capWall, out x, out z);
+        Check(clippedCap == 60.5f && z == 60 &&
+              BeamGrid.GradientV(aimRange, visualLimit, clippedCap) > focusV &&
+              BeamGrid.GradientV(aimRange, visualLimit, clippedCap) < endV,
+            "wall just beyond aim clips the visual cap at its near face");
+        Trace(0f, 1f, visualLimit, clear, out x, out z);
+        Check(z == 62, "only the visual ray extends beyond tile 60");
         Check(BeamGrid.HalfAngle(30f, 2f) < BeamGrid.HalfAngle(30f, 6f),
             "diameter changes footprint");
         var clip30 = new HashSet<(int, int)> { (0, 30) };

@@ -1,12 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework Condition="'$(GameVersion)' != '1.7'">net472</TargetFramework>
+    <TargetFramework Condition="'$(GameVersion)' == '1.7'">net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <AssemblyName>DirectedSearchlights</AssemblyName>
     <RootNamespace>DirectedSearchlights</RootNamespace>
     <Version>0.1.0</Version>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <OutputPath>../1.6/Assemblies/</OutputPath>
+    <OutputPath Condition="'$(GameVersion)' != '1.7'">../1.6/Assemblies/</OutputPath>
+    <OutputPath Condition="'$(GameVersion)' == '1.7'">../1.7/Assemblies/</OutputPath>
     <DebugType>none</DebugType>
     <Deterministic>true</Deterministic>
     <PathMap>$(MSBuildProjectDirectory)=/DirectedSearchlights/Source</PathMap>
@@ -14,7 +16,14 @@
     <RimWorldDir Condition="'$(RimWorldDir)' == ''">$(MSBuildProjectDirectory)/../../..</RimWorldDir>
     <ManagedDir>$(RimWorldDir)/RimWorldWin64_Data/Managed</ManagedDir>
   </PropertyGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(GameVersion)' != '1.7'">
     <Reference Include="$(ManagedDir)/Assembly-CSharp.dll;$(ManagedDir)/UnityEngine*.dll;$(ManagedDir)/Unity.Collections.dll" Private="false" />
   </ItemGroup>
+  <ItemGroup Condition="'$(GameVersion)' == '1.7'">
+    <Reference Include="$(RimWorldDir)/Assembly-CSharp.dll;$(RimWorldDir)/UnityStubs.dll;$(RimWorldDir)/Waylith.UnityCompat.dll;$(RimWorldDir)/Waylith.dll" Private="false" />
+  </ItemGroup>
+  <Target Name="CopySharedDefs" AfterTargets="Build" Condition="'$(GameVersion)' == '1.7'">
+    <ItemGroup><SharedDefs Include="../1.6/Defs/**/*.xml" /></ItemGroup>
+    <Copy SourceFiles="@(SharedDefs)" DestinationFiles="@(SharedDefs->'../1.7/Defs/%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
 </Project>

@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef ParentName="BuildingBase">
+    <defName>DS_SearchlightTurret</defName>
+    <label>searchlight turret</label>
+    <description>A powered directional searchlight that can be aimed to illuminate distant ground.</description>
+    <thingClass>DirectedSearchlights.Building_Searchlight</thingClass>
+    <drawerType>MapMeshAndRealTime</drawerType>
+    <tickerType>Normal</tickerType>
+    <graphicData>
+      <texPath>Things/Building/Searchlight/SearchlightTurret</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+      <drawSize>(1,1)</drawSize>
+      <shadowData>
+        <volume>(0.72,0.32,0.72)</volume>
+        <offset>(0,0,-0.05)</offset>
+      </shadowData>
+    </graphicData>
+    <uiIconPath>Things/Building/Searchlight/SearchlightTurret</uiIconPath>
+    <uiIconScale>0.9</uiIconScale>
+    <size>(1,1)</size>
+    <rotatable>false</rotatable>
+    <altitudeLayer>Building</altitudeLayer>
+    <passability>PassThroughOnly</passability>
+    <fillPercent>0.5</fillPercent>
+    <pathCost>50</pathCost>
+    <canOverlapZones>false</canOverlapZones>
+    <statBases>
+      <MaxHitPoints>150</MaxHitPoints>
+      <WorkToBuild>1200</WorkToBuild>
+      <Flammability>0.7</Flammability>
+      <Mass>8</Mass>
+      <Beauty>-2</Beauty>
+    </statBases>
+    <costList>
+      <Steel>50</Steel>
+      <ComponentIndustrial>1</ComponentIndustrial>
+    </costList>
+    <building>
+      <destroySound>BuildingDestroyed_Metal_Small</destroySound>
+    </building>
+    <comps>
+      <li Class="CompProperties_Power">
+        <compClass>CompPowerTrader</compClass>
+        <basePowerConsumption>150</basePowerConsumption>
+      </li>
+      <li Class="CompProperties_Flickable"/>
+      <li Class="CompProperties_Breakdownable"/>
+    </comps>
+    <designationCategory>Security</designationCategory>
+    <constructionSkillPrerequisite>4</constructionSkillPrerequisite>
+    <researchPrerequisites>
+      <li>Electricity</li>
+    </researchPrerequisites>
+  </ThingDef>
+
+  <ThingDef ParentName="BuildingBase">
+    <defName>DS_SearchlightTower</defName>
+    <label>searchlight tower</label>
+    <description>A tall, high-powered directional searchlight. Its elevated mount must remain outdoors.</description>
+    <thingClass>DirectedSearchlights.Building_SearchlightTower</thingClass>
+    <drawerType>MapMeshAndRealTime</drawerType>
+    <tickerType>Normal</tickerType>
+    <graphicData>
+      <texPath>Things/Building/Searchlight/SearchlightTower</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+      <drawSize>1.35</drawSize>
+      <shadowData>
+        <volume>(1.25,0.35,1.25)</volume>
+        <offset>(0,0,-0.08)</offset>
+      </shadowData>
+    </graphicData>
+    <uiIconPath>Things/Building/Searchlight/SearchlightTower</uiIconPath>
+    <uiIconScale>0.9</uiIconScale>
+    <size>(1,1)</size>
+    <rotatable>false</rotatable>
+    <altitudeLayer>Building</altitudeLayer>
+    <passability>PassThroughOnly</passability>
+    <fillPercent>0.65</fillPercent>
+    <pathCost>50</pathCost>
+    <canOverlapZones>false</canOverlapZones>
+    <canBeUsedUnderRoof>false</canBeUsedUnderRoof>
+    <statBases>
+      <MaxHitPoints>180</MaxHitPoints>
+      <WorkToBuild>1800</WorkToBuild>
+      <Flammability>0.7</Flammability>
+      <Mass>14</Mass>
+      <Beauty>-3</Beauty>
+    </statBases>
+    <costList>
+      <Steel>75</Steel>
+      <ComponentIndustrial>1</ComponentIndustrial>
+    </costList>
+    <building>
+      <destroySound>BuildingDestroyed_Metal_Medium</destroySound>
+    </building>
+    <comps>
+      <li Class="CompProperties_Power">
+        <compClass>CompPowerTrader</compClass>
+        <basePowerConsumption>200</basePowerConsumption>
+      </li>
+      <li Class="CompProperties_Flickable"/>
+      <li Class="CompProperties_Breakdownable"/>
+    </comps>
+    <placeWorkers>
+      <li>PlaceWorker_NotUnderRoof</li>
+    </placeWorkers>
+    <designationCategory>Security</designationCategory>
+    <constructionSkillPrerequisite>5</constructionSkillPrerequisite>
+    <researchPrerequisites>
+      <li>Electricity</li>
+    </researchPrerequisites>
+  </ThingDef>
+
+  <!-- Transient light source used by the searchlights. Ethereal avoids the
+       missing thing-ID behavior of Mote defs; isSaveable=false keeps this
+       transient endpoint light out of map saves. -->
+  <ThingDef>
+    <defName>DS_LightSpot</defName>
+    <label>searchlight illumination</label>
+    <thingClass>ThingWithComps</thingClass>
+    <category>Ethereal</category>
+    <tickerType>Never</tickerType>
+    <drawerType>None</drawerType>
+    <useHitPoints>false</useHitPoints>
+    <isSaveable>false</isSaveable>
+    <selectable>false</selectable>
+    <hideInspect>true</hideInspect>
+    <comps>
+      <li Class="CompProperties_Glower">
+        <glowRadius>3</glowRadius>
+        <glowColor>(245,225,185,0)</glowColor>
+      </li>
+    </comps>
+  </ThingDef>
+</Defs>
