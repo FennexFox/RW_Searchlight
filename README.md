@@ -1,49 +1,114 @@
 # Directed Searchlights
 
-RimWorld 1.6/1.7용 지향성 탐조등입니다. 터렛과 타워는 최대 60칸 안에서 적을 추적합니다. 기본 설정으로 60칸 앞을 겨누면 빔의 전체 각도는 약 3.8°이고, 그 거리에서의 지름은 4칸입니다.
+Directed Searchlights adds powered, directional searchlights for RimWorld 1.6
+and 1.7. Turrets and towers can track hostile pawns up to 60 cells away. At the
+default beam diameter, a target 60 cells away is illuminated by a beam about
+3.8 degrees wide (four cells across at the target).
 
-## 설치와 조작
+English is the default language for project documentation. In-game translations
+remain in the localized files under `Languages/` and the version-specific
+`DefInjected` folders.
 
-이 폴더는 모드 루트입니다. RimWorld의 모드 목록에서 **Directed Searchlights**를 활성화하고 재시작하세요. 빌드된 DLL이 동봉됩니다. 전기를 연구한 다음 보안 탭에서 터렛(150W, 강철 50, 부품 1) 또는 타워(200W, 강철 75, 부품 1)를 건설하고 전력망에 연결하세요. 터렛은 지붕 아래에서도 작동합니다. 타워 위에 지붕이 생기면 정지합니다.
+## Installation and controls
 
-| 모드 | 동작 |
+This folder is the mod root. Enable **Directed Searchlights** in RimWorld's
+Mods menu and restart the game. The mod includes a built assembly. After
+researching Electricity, build either light from the Security category and
+connect it to power:
+
+| Building | Power | Cost |
+|---|---:|---|
+| Searchlight turret | 150 W | 50 steel, 1 industrial component |
+| Searchlight tower | 200 W | 75 steel, 1 industrial component |
+
+The turret operates under a roof. The tower stops operating if its cell becomes
+roofed.
+
+| Mode | Behavior |
 |---|---|
-| Fixed | 지정한 셀의 방향과 거리로 고정합니다. |
-| Sweep | 지정 방향을 중심으로 좌우 45°를 왕복합니다. 적을 놓치면 순찰로 돌아갑니다. |
-| Automatic | 360°를 순찰하다가 유효한 적을 추적합니다. |
+| Fixed | Holds the direction and range set by the selected aim cell. |
+| Sweep | Sweeps up to 45 degrees to either side of the selected direction. If it loses its target, it resumes its sweep. |
+| Automatic | Patrols through 360 degrees and tracks valid hostile pawns. |
 
-건물을 선택한 뒤 기준 셀을 지정해 방향과 순찰 거리를 정하세요. Sweep와 Automatic에서는 적을 직접 지정할 수도 있습니다. 타워는 벽 뒤의 실외 적을 탐지하지만, 빔은 터렛과 마찬가지로 벽이나 닫힌 문에서 잘립니다.
+Select a building and designate an aim cell to set its direction and patrol
+range. In Sweep and Automatic modes, you can also designate a pawn manually.
+The tower can detect outdoor enemies through walls, but the beam itself is
+occluded by walls and closed doors, just like the turret's beam.
 
-## 빔과 게임 조도
+## Beam and illumination
 
-모드 설정에서 표적 위치의 빔 지름을 2~6칸으로 조절합니다. 빔 전체 각도는 현재 조준 거리 `d`에 대해 `min(24°, 2 × atan(지름 / (2d)))`입니다. 장애물이 중간에서 빔을 가로막아도 줌은 조준 거리에 맞춰집니다. 기본 지름 4칸으로 60칸 앞을 겨누면 30칸 지점의 빔 폭은 약 2칸입니다.
+The mod setting controls the beam diameter at the aim distance, from 2 to 6
+cells. For aim distance `d` and diameter `w`, the full beam angle is
+`min(24 degrees, 2 * atan(w / (2 * d)))`. An obstruction does not change the
+zoom: it remains based on the aim distance. With the default four-cell
+diameter, the beam is about two cells wide where it is blocked halfway along a
+60-cell aim.
 
-빔은 화면에 표시하고, 실제 조도는 도달한 조사 지점에 바닐라 광원을 놓아 제공합니다. 광원 반경은 그 지점의 빔 폭의 절반입니다. 기본 빔이 표적에 도달하면 반경 2칸이고, 60칸 조준 중 30칸에서 가로막히면 반경 약 1칸입니다. 바로 앞에서 잘릴 때는 셀 중심을 밝히도록 최소 반경 0.5칸을 사용합니다. 따라서 빔 중간의 셀은 빔만으로 밝아지지 않고, 끝점 근처에서는 빔 폭 바깥의 셀도 밝아질 수 있습니다. CE는 바닐라 조도와 사수의 야간시야 능력을 함께 사용합니다. CE 16.7.4.0에서 야간 전투 조도 상한은 0.5입니다.
+The beam is rendered as an overlay. Actual game illumination comes from a
+vanilla light source placed at the reached endpoint; its physical radius is
+half the beam width at that point. With the default setting, the endpoint
+radius is about 2 cells at full range and about 1 cell when blocked halfway
+along a 60-cell aim. A minimum radius of 0.5 cells is used when the beam is
+blocked close to the building so the cell center is illuminated.
 
-전력은 터렛 150W, 타워 200W입니다. 연구 후 바닐라 투광등(50W)의 각각 3배·4배로, 원거리 자동 추적과 타워의 추가 탐지 능력에 비용을 매겼습니다. [현실 장비 및 바닐라 조명과의 비교](docs/verification/power-balance.md)를 참고하세요.
+The beam itself does not light intermediate cells. The endpoint light can
+illuminate cells outside the visible beam near its endpoint because vanilla
+lighting spreads radially. Combat Extended (CE) combines vanilla lighting with
+the shooter's night-vision capability. The documented nighttime combat-glow
+cap of 0.5 was verified with CE 16.7.4.0.
 
-1.7 빌드는 빔 끝을 둥근 곡선으로 감쇠시킵니다. 기본 지름에서 조준점 뒤로 최대 2칸의 시각적 여운이 생기지만, 표적 판정과 실제 광원 사거리는 60칸으로 유지됩니다. 여운도 벽과 닫힌 문에서 잘립니다. 동봉된 1.6 DLL은 이전 빌드이며, 이 개선을 적용하려면 1.6 설치본으로 다시 빌드해야 합니다.
+Power use is 150 W for the turret and 200 W for the tower. These are three and
+four times the researched vanilla floodlight's 50 W, respectively. The added
+cost is for long-range tracking and the tower's additional detection ability,
+not for a stronger endpoint light. See [the power comparison](docs/verification/power-balance.md).
 
-## 빌드
+The 1.7 build adds a rounded visual falloff beyond the aim point. At the
+default diameter, the visible cap can extend up to 2 cells past the aim point;
+target detection and actual light range remain capped at 60 cells. Walls and
+closed doors also clip the visual cap. The bundled 1.6 assembly predates this
+visual update; rebuild against a RimWorld 1.6 installation to produce a 1.6
+assembly from the current source.
 
-Windows에 .NET SDK와 .NET Framework 4.7.2 targeting pack을 설치한 뒤 PowerShell에서 실행하세요. 개발에 사용한 게임 버전은 1.6.4871 rev590, SDK는 10.0.404입니다.
+## Build
+
+On Windows, install the .NET SDK and, for RimWorld 1.6, the .NET Framework
+4.7.2 targeting pack. The 1.7 target uses .NET 10. The development build was
+tested with RimWorld 1.6.4871 rev590 and .NET SDK 10.0.404.
+
+Run from PowerShell in this mod folder:
 
 ```powershell
 .\build.ps1
-# 게임 설치 폴더 밖에서 빌드할 때
+# When the game is installed somewhere other than the default location:
 .\build.ps1 -RimWorldPath 'D:\SteamLibrary\steamapps\common\RimWorld'
 ```
 
-설치본 버전을 자동 감지해 `1.6/Assemblies/DirectedSearchlights.dll` 또는 `1.7/Assemblies/DirectedSearchlights.dll`을 출력합니다. 1.7.5011은 .NET 10 SDK로 동일한 C# 소스를 빌드합니다. `1.7/Defs`는 빌드 시 `1.6/Defs`에서 복사하므로 Def 수정은 원본인 `1.6/Defs`에 적용하세요. 게임 어셈블리는 설치본을 참조하며 배포물에는 포함하지 않습니다.
+The script detects the installed game version and writes
+`1.6/Assemblies/DirectedSearchlights.dll` or
+`1.7/Assemblies/DirectedSearchlights.dll`. RimWorld 1.7.5011 is built from the
+same C# source using the game's .NET 10 compatibility assemblies. During a
+1.7 build, `1.7/Defs` is copied from `1.6/Defs`; make Def changes in the 1.6
+folder. Game assemblies are build references and are not distributed with the
+mod.
 
-## 원작과 참고 자료
+## Credits and references
 
-운용 모드와 끝점 광원의 아이디어는 Rikiki의 MiningCo. Projector에서 참고했습니다. 독립 Def, 코드, 그래픽을 사용합니다. [Rikiki의 Ludeon 배포 스레드](https://ludeon.com/forums/index.php?topic=14711.msg153946#msg153946) · [MiningCo. 원작 소스](https://github.com/Rikiki123456789/Rimworld/tree/master/MiningCo.%20Projector) · [Zaljerem의 1.6 이식판](https://steamcommunity.com/sharedfiles/filedetails/?id=3712705276)
+The operating modes and endpoint-light concept were inspired by Rikiki's
+MiningCo. Projector. This mod uses its own Defs, code, and graphics:
+[Rikiki's Ludeon forum thread](https://ludeon.com/forums/index.php?topic=14711.msg153946#msg153946),
+[MiningCo. source](https://github.com/Rikiki123456789/Rimworld/tree/master/MiningCo.%20Projector),
+and [Zaljerem's 1.6 port](https://steamcommunity.com/sharedfiles/filedetails/?id=3712705276).
 
-CE의 표적 조도와 사격 페널티를 확인한 코드입니다. [LightingTracker](https://github.com/CombatExtended-Continued/CombatExtended/blob/d847807b84ab7c140f89390c3032e3947b9ab386/Source/CombatExtended/CombatExtended/LightingTracker.cs) · [Verb_LaunchProjectileCE](https://github.com/CombatExtended-Continued/CombatExtended/blob/d847807b84ab7c140f89390c3032e3947b9ab386/Source/CombatExtended/CombatExtended/Verbs/Verb_LaunchProjectileCE.cs)
+These Combat Extended source files were consulted for target lighting and
+shooting penalties:
+[LightingTracker](https://github.com/CombatExtended-Continued/CombatExtended/blob/d847807b84ab7c140f89390c3032e3947b9ab386/Source/CombatExtended/CombatExtended/LightingTracker.cs)
+and
+[Verb_LaunchProjectileCE](https://github.com/CombatExtended-Continued/CombatExtended/blob/d847807b84ab7c140f89390c3032e3947b9ab386/Source/CombatExtended/CombatExtended/Verbs/Verb_LaunchProjectileCE.cs).
 
-## 검증과 재현
+## Verification
 
-[RimWorld 1.6 검증 기록](docs/verification/README.md)에서 게임 테스트 결과와 실행 명령을 확인할 수 있습니다. 다음은 별도 테스트 맵에서 찍은 야간 추적 장면입니다.
+See the [verification record](docs/verification/README.md) for the tested game
+versions, scenarios, measurements, and reproduction commands. A night-tracking
+scene is shown below.
 
-![이동하는 Pawn을 비추는 두 탐조등](docs/verification/night-tracking.jpg)
+![Two searchlights tracking pawns at night](docs/verification/night-tracking.jpg)
