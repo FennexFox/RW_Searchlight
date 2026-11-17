@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>DirectedSearchlights</AssemblyName>
+    <RootNamespace>DirectedSearchlights</RootNamespace>
+    <Version>0.1.0</Version>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>../1.6/Assemblies/</OutputPath>
+    <DebugType>none</DebugType>
+    <Deterministic>true</Deterministic>
+    <ManagedDir>$(RimWorldDir)/RimWorldWin64_Data/Managed</ManagedDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="$(ManagedDir)/Assembly-CSharp.dll;$(ManagedDir)/UnityEngine*.dll;$(ManagedDir)/Unity.Collections.dll" Private="false" />
+  </ItemGroup>
+</Project>
