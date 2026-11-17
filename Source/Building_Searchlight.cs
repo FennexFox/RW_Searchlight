@@ -98,6 +98,10 @@ namespace DirectedSearchlights
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 if (!Enum.IsDefined(typeof(SearchlightMode), mode)) mode = SearchlightMode.Automatic;
+                if (float.IsNaN(fixedHeading) || float.IsInfinity(fixedHeading))
+                    fixedHeading = Rotation.AsAngle;
+                if (float.IsNaN(patrolHeading) || float.IsInfinity(patrolHeading))
+                    patrolHeading = fixedHeading;
                 sweepOffset = Mathf.Clamp(sweepOffset, -SweepLimit, SweepLimit);
                 fixedRange = Mathf.Clamp(fixedRange, 1f, BeamRange);
                 aimRange = Mathf.Clamp(aimRange, 0f, BeamRange);
