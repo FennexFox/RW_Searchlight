@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>SearchlightVisualHarness</AssemblyName>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <RimWorldDir Condition="'$(RimWorldDir)' == ''">$(MSBuildProjectDirectory)/../../../..</RimWorldDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="$(RimWorldDir)/Assembly-CSharp.dll;$(RimWorldDir)/UnityStubs.dll;$(RimWorldDir)/Waylith.UnityCompat.dll;$(RimWorldDir)/Waylith.dll;../../1.7/Assemblies/DirectedSearchlights.dll" Private="false" />
+  </ItemGroup>
+</Project>
