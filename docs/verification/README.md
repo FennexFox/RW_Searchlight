@@ -6,20 +6,50 @@ performance or gameplay-balance testing.
 
 ## Current status: 2026-11-18
 
-The 1.7 visual verification below was run on RimWorld 1.7.5011 rev24. The
-installation currently available for this review is RimWorld 1.6.4871 rev590.
-The current source was updated to fall back from non-finite saved heading
-values. A fresh 1.6 build completed with zero warnings and errors, and the
-isolated geometry tests passed. The legacy-save fallback has not yet been
-exercised in game.
+**Core MVP acceptance is complete for RimWorld 1.6.** The latest scenario
+run passed the original mode/range/door/roof checks and the additional live
+tracking tests: 15-to-60 range transition (68 intermediate dark ticks),
+90-degree rotation (41 intermediate dark ticks), the same pawn walking
+60→59→58→59→60→61, resuming the configured 15-cell sweep, retained-target
+priority, visible/distance/ID acquisition ordering, manual validity, power
+loss while the switch remains on, recovery and destruction cleanup.
+See [scenario results](mvp-1.6/scenarios.txt).
 
-The fresh 1.6 DLL was built to a temporary directory and compared with the
-bundled `1.6/Assemblies/DirectedSearchlights.dll`; their SHA-256 hashes differ.
-Therefore the bundled 1.6 DLL is not byte-identical to the current source
-build. The 1.7 DLL was not rebuilt or compared during this review because the
-currently installed game is 1.6. The earlier 1.7 package and visual checks
-remain historical results; rebuild the package against the matching game
-version before distributing current source changes.
+The tests prohibit teleporting the endpoint glower to an unreached target.
+They intentionally allow a nearby endpoint's radial glow to touch a pawn
+before perfect alignment, as documented by the MVP's vanilla light model.
+Ground glow is checked after the grid has updated, with bounded deadlines.
+
+The restored installation is RimWorld 1.6.4871 (`Version.txt`: rev590; the
+game log reports rev591). The bundled 1.6 DLL has now been rebuilt from current
+source, including rounded caps, width-based visual attenuation and the saved
+heading fallback. The build has zero warnings/errors, geometry tests pass,
+and a second build to a temporary output directory matches the distributed
+DLL byte-for-byte: SHA-256
+`4E182AAAF70F20CED167F5185D4D462293B6E6AFC83B364D4348467E9AD491BF`.
+
+Fresh isolated vanilla and CE runs passed moving-target tracking, ten lamps,
+switch-off/on and save/reload. The final CE run also saved NaN/Infinity fixed
+and patrol headings on one lamp and verified they restored to building
+rotation. CE combat glow/penalty remained 0.5/0.5 ON and 0/1 OFF. A separate
+optics run confirmed the advanced goggles reduce the center penalty to 0.2.
+See [vanilla results](mvp-1.6/runtime-vanilla.txt),
+[final CE results](mvp-1.6/runtime-ce.txt) and [optics results](mvp-1.6/optics.txt).
+Vanilla and optics were run before the visual-only attenuation change; the
+final CE and visual runs used the final DLL above.
+
+The version-aware visual harness passed on 1.6 at 18 and 60 cells and with a
+wall at cell 30. The endpoint remained at cell 29 before that wall, and all
+reached endpoint cells measured 0.5 ground glow at sky glow 0. The [captured
+contact sheet](mvp-1.6/visual.jpg) was inspected for the rounded fade and clean
+wall clipping; [measurements](mvp-1.6/visual.txt) are retained. These figures
+are not photometric or controlled performance measurements.
+
+The 1.7 DLL remains the earlier rounded-cap build: it was not rebuilt because
+the matching game installation is no longer present. Its earlier visual
+checks below are historical and do not establish full 1.7 integration
+acceptance for current source. AO review is closed at the user's request;
+the historical backend-specific limitations below remain documented.
 
 ### RimWorld 1.7 rounded-cap visual test
 

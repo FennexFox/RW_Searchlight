@@ -12,7 +12,7 @@ using Verse.AI;
 namespace SearchlightScenarioHarness
 {
     // Loaded only in the isolated test profile created by Run-Scenarios.ps1.
-    public sealed class ScenarioCheck : GameComponent
+    public sealed partial class ScenarioCheck : GameComponent
     {
         private static readonly Stopwatch Clock = Stopwatch.StartNew();
         private static readonly List<Building_Searchlight> lamps = new List<Building_Searchlight>();
@@ -51,7 +51,8 @@ namespace SearchlightScenarioHarness
             try
             {
                 // Keep the hostile pawn at a reproducible cell while the map and AI tick normally.
-                if (target != null && target.Spawned) target.pather.StopDead();
+                if (target != null && target.Spawned && (step != TrackingStep || trackingPhase != TrackingPhase.FollowPawn))
+                    target.pather.StopDead();
                 int age = Find.TickManager.TicksGame - stepTick;
                 switch (step)
                 {
@@ -68,6 +69,7 @@ namespace SearchlightScenarioHarness
                     case 10: if (age >= 30) TowerRoof(); break;
                     case 11: if (age >= 180) ZeroLamps(); break;
                     case 12: if (age >= 180) TenLamps(); break;
+                    case TrackingStep: TickTracking(age); break;
                 }
             }
             catch (Exception ex) { Fail("step=" + step + "; " + ex); }
@@ -128,6 +130,8 @@ namespace SearchlightScenarioHarness
             Check(target.Position.x == origin.x + 61, "61-cell target stayed in place");
             Check(turret.CurrentMode == SearchlightMode.Automatic, "automatic mode");
             Check(turret.LockedTarget == null, "61-cell target excluded");
+            turret.SelectManualTarget(target);
+            Check(turret.LockedTarget == null, "manual targeting also rejects a 61-cell pawn");
             Write("automatic-scan; start=" + automaticHeadingStart + "; end=" + turret.AimHeading + "; operating=" + turret.IsOperating);
             Check(Mathf.Abs(Mathf.DeltaAngle(automaticHeadingStart, turret.AimHeading)) > 2f, "automatic mode scans without a target");
             Write("range61 PASS; acquisitions=" + turret.AcquisitionCount);
@@ -168,6 +172,8 @@ namespace SearchlightScenarioHarness
         {
             Check(!BeamField.Clear(Find.CurrentMap, turret.Position, target.Position), "wall blocks low line of sight");
             Check(turret.LockedTarget == null, "turret cannot lock through wall");
+            turret.SelectManualTarget(target);
+            Check(turret.LockedTarget == null, "turret manual targeting also requires line of sight");
             Check(tower.LockedTarget == target, "tower locks through wall");
             Check(tower.SpotCell.IsValid && tower.SpotCell.x < origin.x + 5, "tower illuminates the near side of the wall");
             var spot = tower.SpotCell.GetThingList(Find.CurrentMap).Single(t => t.def.defName == "DS_LightSpot");
@@ -223,6 +229,11 @@ namespace SearchlightScenarioHarness
             lamps.Clear();
             door.Destroy(DestroyMode.Vanish);
             foreach (Thing wall in blockers) if (!wall.Destroyed) wall.Destroy(DestroyMode.Vanish);
+            BeginTracking();
+        }
+
+        private static void BeginPerformance()
+        {
             zeroStart = Clock.ElapsedMilliseconds;
             Next(11);
         }
@@ -262,11 +273,21 @@ namespace SearchlightScenarioHarness
 
         private static void SpawnTarget(IntVec3 cell)
         {
+            target = GenerateHostile();
+            SpawnHostile(target, cell);
+        }
+
+        private static Pawn GenerateHostile()
+        {
             PawnKindDef kind = DefDatabase<PawnKindDef>.GetNamed("Pirate", false) ?? PawnKindDefOf.Colonist;
-            target = PawnGenerator.GeneratePawn(kind, Faction.OfAncientsHostile);
-            GenSpawn.Spawn(target, cell, Find.CurrentMap);
-            target.jobs.StartJob(JobMaker.MakeJob(JobDefOf.Wait), JobCondition.InterruptForced);
-            Check(target.HostileTo(Faction.OfPlayer), "test pawn hostile");
+            return PawnGenerator.GeneratePawn(kind, Faction.OfAncientsHostile);
+        }
+
+        private static void SpawnHostile(Pawn pawn, IntVec3 cell)
+        {
+            GenSpawn.Spawn(pawn, cell, Find.CurrentMap);
+            pawn.jobs.StartJob(JobMaker.MakeJob(JobDefOf.Wait), JobCondition.InterruptForced);
+            Check(pawn.HostileTo(Faction.OfPlayer), "test pawn hostile");
         }
 
         private static bool Power(Building_Searchlight light) => light.GetComp<CompPowerTrader>().PowerOn;

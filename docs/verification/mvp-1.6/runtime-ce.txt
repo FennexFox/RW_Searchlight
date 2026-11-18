@@ -1,0 +1,46 @@
+2026-11-18T04:31:46.0547183Z harness-created; game=Verse.Game; args="C:\Program Files (x86)\Steam\steamapps\common\RimWorld\RimWorldWin64.exe" -quicktest -savedatafolder=C:\Users\techn\AppData\Local\Temp\SearchlightRuntime-ce-20261118-043128 -ds-result=C:\Users\techn\AppData\Local\Temp\SearchlightRuntime-ce-20261118-043128\runtime-results.txt -logFile C:\Users\techn\AppData\Local\Temp\SearchlightRuntime-ce-20261118-043128\Player.log -screen-width 1280 -screen-height 800
+2026-11-18T04:31:53.2591977Z new-game; map=Map-0-PlayerHome; elapsedMs=7202
+2026-11-18T04:31:54.5134491Z setup-begin; elapsedMs=8457
+2026-11-18T04:31:54.5164580Z open-fixture; origin=(149, 0, 137); elapsedMs=8460
+2026-11-18T04:31:54.5335066Z setup; origin=(149, 0, 137); target=(161, 0, 137); localHour=1; skyGlow=0; tickShift=47500; power=False|False
+2026-11-18T04:31:55.3147080Z baseline; elapsedMs=9255; target=(168, 0, 138); snapshots=DS_SearchlightTurret@(149, 0, 137):mode=Automatic,target=Sweeney,heading=86.98721,spot=(168, 0, 138),operating=True,acquisitions=3,glow=0 | DS_SearchlightTower@(149, 0, 145):mode=Automatic,target=Sweeney,heading=110.2249,spot=(168, 0, 138),operating=True,acquisitions=3,glow=0; power=True|True
+2026-11-18T04:31:55.3147080Z CHECK PASS both original lamps powered
+2026-11-18T04:31:55.3156935Z CHECK PASS both original lamps locked hostile pawn
+2026-11-18T04:31:55.3166977Z CHECK PASS both original lamps ran acquisition tick
+2026-11-18T04:31:55.3166977Z CHECK PASS both original lamps have light spots
+2026-11-18T04:31:55.3166977Z CHECK PASS hostile pawn moved
+2026-11-18T04:31:55.3166977Z illumination; targetGlow=0.5; spotGlow=0.5; spot=(168, 0, 138); target=(168, 0, 138)
+2026-11-18T04:31:55.3182071Z CHECK PASS spot ground artificially illuminated
+2026-11-18T04:31:55.3182071Z CHECK PASS target ground artificially illuminated
+2026-11-18T04:31:55.8114067Z wall; elapsedMs=9754; wall=(158, 0, 137); target=(168, 0, 138); snapshots=DS_SearchlightTurret@(149, 0, 137):mode=Automatic,target=,heading=76.40015,spot=(151, 0, 138),operating=True,acquisitions=9,glow=0 | DS_SearchlightTower@(149, 0, 145):mode=Automatic,target=Sweeney,heading=110.2249,spot=(168, 0, 138),operating=True,acquisitions=9,glow=0
+2026-11-18T04:31:55.8123891Z CHECK PASS turret loses lock on blocked pawn
+2026-11-18T04:31:55.8123891Z CHECK PASS tower retains lock through wall
+2026-11-18T04:31:57.4792298Z ten-lamps; elapsedMs=11421; count=10; active=10; spot-count=10; states=(149, 0, 137):True,True,(168, 0, 138),generator=(148, 0, 137),generatorSpawned=True | (149, 0, 145):True,True,(168, 0, 138),generator=(148, 0, 145),generatorSpawned=True | (137, 0, 125):True,True,(168, 0, 138),generator=(136, 0, 125),generatorSpawned=True | (141, 0, 125):True,True,(168, 0, 138),generator=(140, 0, 125),generatorSpawned=True | (145, 0, 125):True,True,(168, 0, 138),generator=(144, 0, 125),generatorSpawned=True | (149, 0, 125):True,True,(168, 0, 138),generator=(148, 0, 125),generatorSpawned=True | (137, 0, 129):True,True,(168, 0, 138),generator=(136, 0, 129),generatorSpawned=True | (141, 0, 129):True,True,(168, 0, 138),generator=(140, 0, 129),generatorSpawned=True | (145, 0, 129):True,True,(168, 0, 138),generator=(144, 0, 129),generatorSpawned=True | (149, 0, 129):True,True,(168, 0, 138),generator=(148, 0, 129),generatorSpawned=True
+2026-11-18T04:31:57.4792298Z CHECK PASS all ten lamps powered for performance window
+2026-11-18T04:31:57.4802275Z CHECK PASS one light spot per active lamp
+2026-11-18T04:31:57.4838023Z ce-on; shooter=(131, 0, 137); target=(168, 0, 138); tick=48461; combatGlow=0.5; lightingShift=0.5; skyGlow=0
+2026-11-18T04:31:58.4791701Z performance-window; elapsedMs=12420; 360tickWallMs=993; snapshots=DS_SearchlightTurret@(149, 0, 137):mode=Automatic,target=Sweeney,heading=86.98721,spot=(168, 0, 138),operating=True,acquisitions=41,glow=0 | DS_SearchlightTower@(149, 0, 145):mode=Automatic,target=Sweeney,heading=110.2249,spot=(168, 0, 138),operating=True,acquisitions=41,glow=0
+2026-11-18T04:31:59.3131806Z flick-off; snapshots=DS_SearchlightTurret@(149, 0, 137):mode=Automatic,target=,heading=86.98721,spot=(-1000, -1000, -1000),operating=False,acquisitions=41,glow=0; power=False; flick=False; spots=0
+2026-11-18T04:31:59.3131806Z CHECK PASS flick off stops all ten lamps
+2026-11-18T04:31:59.3145394Z CHECK PASS flick off removes all spots
+2026-11-18T04:31:59.3145394Z CHECK PASS CE positions fixed at off
+2026-11-18T04:31:59.3155425Z ce-off; shooter=(131, 0, 137); target=(168, 0, 138); tick=49121; combatGlow=0; lightingShift=1; skyGlow=0
+2026-11-18T04:32:00.9797522Z flick-on; snapshots=DS_SearchlightTurret@(149, 0, 137):mode=Automatic,target=Sweeney,heading=86.98721,spot=(168, 0, 138),operating=True,acquisitions=59,glow=0; power=True; flick=True
+2026-11-18T04:32:00.9807680Z CHECK PASS flick on resumes all ten lamps
+2026-11-18T04:32:00.9807680Z CHECK PASS flick on restores all spots
+2026-11-18T04:32:00.9817663Z CHECK PASS CE positions fixed at restored
+2026-11-18T04:32:00.9827668Z ce-restored; shooter=(131, 0, 137); target=(168, 0, 138); tick=49721; combatGlow=0.5; lightingShift=0.5; skyGlow=0
+2026-11-18T04:32:00.9827668Z CHECK PASS CE shooter and target stayed fixed across OFF/ON readings
+2026-11-18T04:32:00.9827668Z CHECK PASS CE combat glow rises with searchlights
+2026-11-18T04:32:00.9837634Z CHECK PASS CE lighting penalty falls with searchlights
+2026-11-18T04:32:00.9837634Z CHECK PASS CE combat glow returns after flick on
+2026-11-18T04:32:00.9867658Z save-start; elapsedMs=14929
+2026-11-18T04:32:01.5888215Z save-finished; bytes=11800139
+2026-11-18T04:32:03.8684123Z loaded-game; map=Map-0-PlayerHome; elapsedMs=17809
+2026-11-18T04:32:03.8699650Z reload-lamps=10; snapshots=DS_SearchlightTurret@(149, 0, 137):mode=Automatic,target=Sweeney,heading=86.98721,spot=(168, 0, 138),operating=True,acquisitions=0,glow=0 | DS_SearchlightTower@(149, 0, 145):mode=Automatic,target=Sweeney,heading=110.2249,spot=(168, 0, 138),operating=True,acquisitions=0,glow=0
+2026-11-18T04:32:03.8699650Z CHECK PASS save-load retained all ten lamps
+2026-11-18T04:32:03.8709997Z CHECK PASS save-load retained power and operation
+2026-11-18T04:32:03.8709997Z CHECK PASS save-load retained/reacquired target lock
+2026-11-18T04:32:03.8719974Z CHECK PASS save-load restored light spots
+2026-11-18T04:32:03.8729942Z CHECK PASS legacy non-finite fixed and patrol headings restored to building rotation
+2026-11-18T04:32:03.8729942Z PASS; totalElapsedMs=17815

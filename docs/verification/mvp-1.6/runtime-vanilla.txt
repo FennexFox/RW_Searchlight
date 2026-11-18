@@ -1,0 +1,39 @@
+2026-11-18T04:26:33.2743041Z harness-created; game=Verse.Game; args="C:\Program Files (x86)\Steam\steamapps\common\RimWorld\RimWorldWin64.exe" -quicktest -savedatafolder=C:\Users\techn\AppData\Local\Temp\SearchlightRuntime-vanilla-20261118-042606 -ds-result=C:\Users\techn\AppData\Local\Temp\SearchlightRuntime-vanilla-20261118-042606\runtime-results.txt -logFile C:\Users\techn\AppData\Local\Temp\SearchlightRuntime-vanilla-20261118-042606\Player.log -screen-width 1280 -screen-height 800
+2026-11-18T04:26:38.8312985Z new-game; map=Map-0-PlayerHome; elapsedMs=5556
+2026-11-18T04:26:40.0576801Z setup-begin; elapsedMs=6782
+2026-11-18T04:26:40.0596778Z open-fixture; origin=(145, 0, 145); elapsedMs=6784
+2026-11-18T04:26:40.0938005Z setup; origin=(145, 0, 145); target=(157, 0, 145); localHour=1; skyGlow=0; tickShift=47500; power=False|False
+2026-11-18T04:26:40.9522605Z baseline; elapsedMs=7675; target=(163, 0, 145); snapshots=DS_SearchlightTurret@(145, 0, 145):mode=Automatic,target=Bov,heading=90,spot=(163, 0, 145),operating=True,acquisitions=3,glow=0 | DS_SearchlightTower@(145, 0, 153):mode=Automatic,target=Bov,heading=113.9625,spot=(163, 0, 145),operating=True,acquisitions=3,glow=0; power=True|True
+2026-11-18T04:26:40.9537667Z CHECK PASS both original lamps powered
+2026-11-18T04:26:40.9547755Z CHECK PASS both original lamps locked hostile pawn
+2026-11-18T04:26:40.9559515Z CHECK PASS both original lamps ran acquisition tick
+2026-11-18T04:26:40.9569618Z CHECK PASS both original lamps have light spots
+2026-11-18T04:26:40.9579646Z CHECK PASS hostile pawn moved
+2026-11-18T04:26:40.9619616Z illumination; targetGlow=0.5; spotGlow=0.5; spot=(163, 0, 145); target=(163, 0, 145)
+2026-11-18T04:26:40.9644652Z CHECK PASS spot ground artificially illuminated
+2026-11-18T04:26:40.9654769Z CHECK PASS target ground artificially illuminated
+2026-11-18T04:26:41.4640373Z wall; elapsedMs=8188; wall=(154, 0, 145); target=(163, 0, 145); snapshots=DS_SearchlightTurret@(145, 0, 145):mode=Automatic,target=,heading=79.60016,spot=(204, 0, 156),operating=True,acquisitions=9,glow=0 | DS_SearchlightTower@(145, 0, 153):mode=Automatic,target=Bov,heading=113.9625,spot=(163, 0, 145),operating=True,acquisitions=9,glow=0
+2026-11-18T04:26:41.4650445Z CHECK PASS turret loses lock on blocked pawn
+2026-11-18T04:26:41.4650445Z CHECK PASS tower retains lock through wall
+2026-11-18T04:26:43.1432021Z ten-lamps; elapsedMs=9865; count=10; active=10; spot-count=10; states=(145, 0, 145):True,True,(163, 0, 145),generator=(144, 0, 145),generatorSpawned=True | (145, 0, 153):True,True,(163, 0, 145),generator=(144, 0, 153),generatorSpawned=True | (133, 0, 133):True,True,(163, 0, 145),generator=(132, 0, 133),generatorSpawned=True | (137, 0, 133):True,True,(163, 0, 145),generator=(136, 0, 133),generatorSpawned=True | (141, 0, 133):True,True,(163, 0, 145),generator=(140, 0, 133),generatorSpawned=True | (145, 0, 133):True,True,(163, 0, 145),generator=(144, 0, 133),generatorSpawned=True | (133, 0, 137):True,True,(163, 0, 145),generator=(132, 0, 137),generatorSpawned=True | (137, 0, 137):True,True,(163, 0, 145),generator=(136, 0, 137),generatorSpawned=True | (141, 0, 137):True,True,(163, 0, 145),generator=(140, 0, 137),generatorSpawned=True | (145, 0, 137):True,True,(163, 0, 145),generator=(144, 0, 137),generatorSpawned=True
+2026-11-18T04:26:43.1447073Z CHECK PASS all ten lamps powered for performance window
+2026-11-18T04:26:43.1457151Z CHECK PASS one light spot per active lamp
+2026-11-18T04:26:43.1497239Z ce-on; assembly=absent
+2026-11-18T04:26:44.1410776Z performance-window; elapsedMs=10864; 360tickWallMs=990; snapshots=DS_SearchlightTurret@(145, 0, 145):mode=Automatic,target=Bov,heading=90,spot=(163, 0, 145),operating=True,acquisitions=41,glow=0 | DS_SearchlightTower@(145, 0, 153):mode=Automatic,target=Bov,heading=113.9625,spot=(163, 0, 145),operating=True,acquisitions=41,glow=0
+2026-11-18T04:26:44.9729549Z flick-off; snapshots=DS_SearchlightTurret@(145, 0, 145):mode=Automatic,target=,heading=90,spot=(-1000, -1000, -1000),operating=False,acquisitions=41,glow=0; power=False; flick=False; spots=0
+2026-11-18T04:26:44.9729549Z CHECK PASS flick off stops all ten lamps
+2026-11-18T04:26:44.9744628Z CHECK PASS flick off removes all spots
+2026-11-18T04:26:44.9754710Z ce-off; assembly=absent
+2026-11-18T04:26:46.6390966Z flick-on; snapshots=DS_SearchlightTurret@(145, 0, 145):mode=Automatic,target=Bov,heading=90,spot=(163, 0, 145),operating=True,acquisitions=59,glow=0; power=True; flick=True
+2026-11-18T04:26:46.6400968Z CHECK PASS flick on resumes all ten lamps
+2026-11-18T04:26:46.6410967Z CHECK PASS flick on restores all spots
+2026-11-18T04:26:46.6416027Z ce-restored; assembly=absent
+2026-11-18T04:26:46.6426111Z save-start; elapsedMs=13366
+2026-11-18T04:26:47.0054523Z save-finished; bytes=3325784
+2026-11-18T04:26:48.5799846Z loaded-game; map=Map-0-PlayerHome; elapsedMs=15303
+2026-11-18T04:26:48.5809854Z reload-lamps=10; snapshots=DS_SearchlightTurret@(145, 0, 145):mode=Automatic,target=Bov,heading=90,spot=(163, 0, 145),operating=True,acquisitions=0,glow=0 | DS_SearchlightTower@(145, 0, 153):mode=Automatic,target=Bov,heading=113.9625,spot=(163, 0, 145),operating=True,acquisitions=0,glow=0
+2026-11-18T04:26:48.5819852Z CHECK PASS save-load retained all ten lamps
+2026-11-18T04:26:48.5829853Z CHECK PASS save-load retained power and operation
+2026-11-18T04:26:48.5839848Z CHECK PASS save-load retained/reacquired target lock
+2026-11-18T04:26:48.5839848Z CHECK PASS save-load restored light spots
+2026-11-18T04:26:48.5854917Z PASS; totalElapsedMs=15308

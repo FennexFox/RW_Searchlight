@@ -43,6 +43,12 @@
 - Add the agreed visual expansion attenuation without changing ground illumination or CE mechanics; validate geometry and rendered screenshots.
 - Update completion evidence and package notes. Full 1.7 integration acceptance remains separate from core 1.6 MVP acceptance because that installation has been replaced.
 
+### Outcome
+
+- Complete for the restored 1.6 acceptance target: current binary matches a separate source build, geometry/package checks pass, live tracking scenarios pass, vanilla/CE lifecycle and CE optics pass, and final visual captures were inspected.
+- The additional visual expansion attenuation is implemented without changing the ground-light model. Scenario logs and captures are retained under `docs/verification/mvp-1.6`.
+- Remaining follow-ups are outside this acceptance: updating/revalidating the 1.7 binary, exact per-cell cone illumination, and controlled large-colony performance tuning. AO is not reopened.
+
 ## Known Risks And Assumptions
 
 - Validate installed RimWorld 1.6.4871 and optional CE/AO using isolated game data.

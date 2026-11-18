@@ -1,0 +1,19 @@
+2026-11-18T04:28:41.3984139Z created
+2026-11-18T04:28:49.4492357Z setup; lamp=(105, 0, 125); shooter=(102, 0, 125); hour=1; skyGlow=0
+2026-11-18T04:28:50.1116101Z unaided; tick=47621; spot=(120, 0, 125); radius=2.999992; skyGlow=0; goggles=Apparel_BasicShirt,Apparel_Pants
+2026-11-18T04:28:50.1161284Z unaided; offset=0; cell=(120, 0, 125); groundGlow=0.5; combatGlow=0.5; lightingShift=0.5
+2026-11-18T04:28:50.1171303Z unaided; offset=1; cell=(121, 0, 125); groundGlow=0.5; combatGlow=0.3548387; lightingShift=0.6451613
+2026-11-18T04:28:50.1181272Z unaided; offset=2; cell=(122, 0, 125); groundGlow=0; combatGlow=0.1451613; lightingShift=0.8548387
+2026-11-18T04:28:50.1191288Z unaided; offset=3; cell=(123, 0, 125); groundGlow=0; combatGlow=0; lightingShift=1
+2026-11-18T04:28:50.1201327Z unaided; diagonal=1; cell=(121, 0, 126); groundGlow=0.5; combatGlow=0.25; lightingShift=0.75
+2026-11-18T04:28:50.1201327Z unaided; diagonal=2; cell=(122, 0, 127); groundGlow=0; combatGlow=0.04032258; lightingShift=0.9596774
+2026-11-18T04:28:50.1211281Z unaided; diagonal=3; cell=(123, 0, 128); groundGlow=0; combatGlow=0; lightingShift=1
+2026-11-18T04:28:50.2754093Z advanced-goggles; tick=47681; spot=(120, 0, 125); radius=2.999992; skyGlow=0; goggles=Apparel_BasicShirt,Apparel_Pants,CE_Apparel_AdvancedNightVision
+2026-11-18T04:28:50.2754093Z advanced-goggles; offset=0; cell=(120, 0, 125); groundGlow=0.5; combatGlow=0.5; lightingShift=0.2
+2026-11-18T04:28:50.2766573Z advanced-goggles; offset=1; cell=(121, 0, 125); groundGlow=0.5; combatGlow=0.3548387; lightingShift=0.2580645
+2026-11-18T04:28:50.2766573Z advanced-goggles; offset=2; cell=(122, 0, 125); groundGlow=0; combatGlow=0.1451613; lightingShift=0.3419355
+2026-11-18T04:28:50.2776703Z advanced-goggles; offset=3; cell=(123, 0, 125); groundGlow=0; combatGlow=0; lightingShift=0.4
+2026-11-18T04:28:50.2776703Z advanced-goggles; diagonal=1; cell=(121, 0, 126); groundGlow=0.5; combatGlow=0.25; lightingShift=0.3
+2026-11-18T04:28:50.2786702Z advanced-goggles; diagonal=2; cell=(122, 0, 127); groundGlow=0; combatGlow=0.04032258; lightingShift=0.3838709
+2026-11-18T04:28:50.2786702Z advanced-goggles; diagonal=3; cell=(123, 0, 128); groundGlow=0; combatGlow=0; lightingShift=0.4
+2026-11-18T04:28:50.2796645Z PASS; ticks=47681

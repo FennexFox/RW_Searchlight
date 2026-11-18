@@ -29,6 +29,7 @@ namespace SearchlightRuntimeHarness
         private static int phaseTick;
         private static bool failed;
         private static int targetId;
+        private static int legacyProbeId;
         private static long perfStartMs;
         private static float ceOnGlow = float.NaN;
         private static float ceOnShift = float.NaN;
@@ -66,6 +67,12 @@ namespace SearchlightRuntimeHarness
                 Check(found.All(t => Convert.ToBoolean(Read(t, "IsOperating"))), "save-load retained power and operation");
                 Check(found.Any(t => (Read(t, "LockedTarget") as Pawn)?.thingIDNumber == targetId), "save-load retained/reacquired target lock");
                 Check(found.All(t => ((IntVec3)Read(t, "SpotCell")).IsValid), "save-load restored light spots");
+                var legacy = found.Single(t => t.thingIDNumber == legacyProbeId);
+                var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                float restoredFixed = (float)typeof(Building_Searchlight).GetField("fixedHeading", flags).GetValue(legacy);
+                float restoredPatrol = (float)typeof(Building_Searchlight).GetField("patrolHeading", flags).GetValue(legacy);
+                Check(restoredFixed == legacy.Rotation.AsAngle && restoredPatrol == restoredFixed,
+                    "legacy non-finite fixed and patrol headings restored to building rotation");
                 Finish(!failed);
             }
         }
@@ -94,6 +101,11 @@ namespace SearchlightRuntimeHarness
                 try
                 {
                     Write("save-start; elapsedMs=" + Clock.ElapsedMilliseconds);
+                    // Simulate a legacy save with invalid persisted headings, on one lamp only.
+                    legacyProbeId = lamps[0].thingIDNumber;
+                    var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                    typeof(Building_Searchlight).GetField("fixedHeading", flags).SetValue(lamps[0], float.NaN);
+                    typeof(Building_Searchlight).GetField("patrolHeading", flags).SetValue(lamps[0], float.PositiveInfinity);
                     GameDataSaveLoader.SaveGame("searchlight-runtime");
                     Write("save-finished; bytes=" + new FileInfo(GenFilePaths.FilePathForSavedGame("searchlight-runtime")).Length);
                     GameDataSaveLoader.LoadGame("searchlight-runtime");

@@ -1,11 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <RimWorldDir Condition="'$(RimWorldDir)' == ''">$(MSBuildProjectDirectory)/../../../..</RimWorldDir>
+    <GameVersion Condition="'$(GameVersion)' == '' And Exists('$(RimWorldDir)/RimWorld.exe') And Exists('$(RimWorldDir)/Assembly-CSharp.dll')">1.7</GameVersion>
+    <GameVersion Condition="'$(GameVersion)' == ''">1.6</GameVersion>
+    <TargetFramework Condition="'$(GameVersion)' == '1.6'">net472</TargetFramework>
+    <TargetFramework Condition="'$(GameVersion)' == '1.7'">net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
     <AssemblyName>SearchlightVisualHarness</AssemblyName>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <RimWorldDir Condition="'$(RimWorldDir)' == ''">$(MSBuildProjectDirectory)/../../../..</RimWorldDir>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ManagedDir>$(RimWorldDir)/RimWorldWin64_Data/Managed</ManagedDir>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="$(RimWorldDir)/Assembly-CSharp.dll;$(RimWorldDir)/UnityStubs.dll;$(RimWorldDir)/Waylith.UnityCompat.dll;$(RimWorldDir)/Waylith.dll;../../1.7/Assemblies/DirectedSearchlights.dll" Private="false" />
+    <Compile Include="VisualHarness.cs" />
+    <Reference Include="../../$(GameVersion)/Assemblies/DirectedSearchlights.dll" Private="false" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(GameVersion)' == '1.6'">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net472" Version="1.0.3" PrivateAssets="all" />
+    <Reference Include="$(ManagedDir)/Assembly-CSharp.dll;$(ManagedDir)/UnityEngine.CoreModule.dll;$(ManagedDir)/UnityEngine.ScreenCaptureModule.dll" Private="false" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(GameVersion)' == '1.7'">
+    <Reference Include="$(RimWorldDir)/Assembly-CSharp.dll;$(RimWorldDir)/UnityStubs.dll;$(RimWorldDir)/Waylith.UnityCompat.dll;$(RimWorldDir)/Waylith.dll" Private="false" />
   </ItemGroup>
 </Project>

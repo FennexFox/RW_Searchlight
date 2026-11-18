@@ -1,0 +1,23 @@
+2026-11-18T04:37:46.3396649Z created; assembly=0.1.0.0
+2026-11-18T04:37:55.9429850Z new-game; map=(250, 1, 250)
+2026-11-18T04:37:57.2350701Z setup; origin=(70, 0, 125); target=(82, 0, 125); power=True/True
+2026-11-18T04:37:57.6918878Z fixed PASS; spot=(90, 0, 125); acquisitions=0
+2026-11-18T04:37:57.9374333Z sweep PASS; heading=126; acquisitions=3
+2026-11-18T04:37:58.0256448Z automatic-scan; start=126; end=102; operating=True
+2026-11-18T04:37:58.0266393Z range61 PASS; acquisitions=4
+2026-11-18T04:37:58.2712002Z range60 PASS; locked=Frenchy; acquisitions=7
+2026-11-18T04:37:58.5261332Z leave-range PASS; lock=
+2026-11-18T04:37:58.7810062Z wall PASS; turretSpot=(71, 0, 105); towerSpot=(74, 0, 130)
+2026-11-18T04:37:59.0263524Z closed-door PASS
+2026-11-18T04:37:59.2720851Z open-door PASS; turretLock=Dumbo
+2026-11-18T04:37:59.3732334Z target-roof PASS; turret=Dumbo; tower=
+2026-11-18T04:37:59.4602494Z tower-roof PASS
+2026-11-18T04:37:59.9817812Z smooth-range PASS; from=15; to=60; intermediateDarkTicks=68
+2026-11-18T04:38:00.3693606Z smooth-rotation PASS; from=0; to=90; intermediateDarkTicks=41
+2026-11-18T04:38:00.7036750Z moving-boundary PASS; same spawned pawn walked 60->59->58->59->60->61
+2026-11-18T04:38:00.9597177Z resume-sweep PASS; offset=36.39999; range=15
+2026-11-18T04:38:01.2485944Z target-ranking PASS; retainedOccluded=40169; selectedLowId=40180; equalDistanceHighId=40184; fartherId=40175
+2026-11-18T04:38:01.4602785Z power-and-destruction PASS; switch remained on during power loss
+2026-11-18T04:38:01.9626353Z perf-zero; ticks=180; elapsedMs=497
+2026-11-18T04:38:02.4597455Z perf-ten; ticks=180; elapsedMs=492; zeroMs=497; active=10
+2026-11-18T04:38:02.4608419Z PASS; totalElapsedMs=16126
