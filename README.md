@@ -62,12 +62,22 @@ four times the researched vanilla floodlight's 50 W, respectively. The added
 cost is for long-range tracking and the tower's additional detection ability,
 not for a stronger endpoint light. See [the power comparison](docs/verification/power-balance.md).
 
-The 1.7 build adds a rounded visual falloff beyond the aim point. At the
+The beam has a rounded visual falloff beyond the aim point. At the
 default diameter, the visible cap can extend up to 2 cells past the aim point;
 target detection and actual light range remain capped at 60 cells. Walls and
-closed doors also clip the visual cap. The bundled 1.6 assembly predates this
-visual update; rebuild against a RimWorld 1.6 installation to produce a 1.6
-assembly from the current source.
+closed doors also clip the visual cap.
+
+The overlay dims as its cross-section grows. A softened inverse-area curve
+multiplies opacity by `1 / (1 + (local diameter / 6)^2)`: at six cells across,
+half of the original opacity remains. This is an artistic approximation,
+not a lux simulation. Auto-zoom preserves the same attenuation for equal
+target widths at different ranges. This effect does not alter the endpoint
+light or CE calculations.
+
+The bundled 1.6 DLL is rebuilt from current source. The 1.7 DLL retains the
+earlier rounded-cap build and does not include the latest spread attenuation
+or saved-heading fallback. Rebuild it with a 1.7 installation before releasing
+those source changes for 1.7.
 
 ## Build
 

@@ -35,6 +35,14 @@
 
 - powershell -File build.ps1
 
+## MVP completion follow-up (2026-11-18)
+
+- The user restored RimWorld 1.6.4871 and requested completing the remaining core MVP work. Rebuild its DLL from current source and use 1.6 as the release acceptance target.
+- Add actual-game tracking regressions for distance transitions, pre-arrival lighting, moving range boundary, target ordering/manual validity and patrol return. Sweep limits initial acquisition, while a valid acquired target may be followed outside the patrol arc.
+- Repeat vanilla/CE lifecycle, ten-light and optics verification. AO review is closed by user instruction.
+- Add the agreed visual expansion attenuation without changing ground illumination or CE mechanics; validate geometry and rendered screenshots.
+- Update completion evidence and package notes. Full 1.7 integration acceptance remains separate from core 1.6 MVP acceptance because that installation has been replaced.
+
 ## Known Risks And Assumptions
 
 - Validate installed RimWorld 1.6.4871 and optional CE/AO using isolated game data.

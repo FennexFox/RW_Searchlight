@@ -11,11 +11,13 @@ namespace DirectedSearchlights
     {
         private const float AngularStep = 0.25f;
         private const float CornerOffset = 0.005f;
+        private const int GradientStepsPerCell = 10;
+        private static readonly Texture2D[] Gradients = new Texture2D[6 * GradientStepsPerCell + 1];
 
         private Mesh mesh;
         private bool meshDirty;
         private Material material;
-        private static Texture2D gradient;
+        private int gradientDiameterStep;
         private Map map;
         private IntVec3 origin;
         private float heading;
@@ -70,8 +72,13 @@ namespace DirectedSearchlights
         public void Draw()
         {
             if (!hasReachedBounds || triangles.Count == 0) return;
+            if (material == null)
+                material = new Material(ShaderDatabase.TransparentPostLight)
+                {
+                    color = new Color(1f, 0.96f, 0.68f, 0.28f)
+                };
             // RimWorld initializes loaded maps on its long-event thread. Unity
-            // mesh allocation/upload belongs to the main-thread draw callback.
+            // mesh and texture allocation/upload belong to the main-thread draw callback.
             if (meshDirty)
             {
                 if (mesh == null) { mesh = new Mesh(); mesh.MarkDynamic(); }
@@ -79,14 +86,9 @@ namespace DirectedSearchlights
                 mesh.SetVertices(vertices);
                 mesh.SetUVs(0, uvs);
                 mesh.SetTriangles(triangles, 0);
+                material.mainTexture = GradientTexture(gradientDiameterStep);
                 meshDirty = false;
             }
-            if (material == null)
-                material = new Material(ShaderDatabase.TransparentPostLight)
-                {
-                    color = new Color(1f, 0.96f, 0.68f, 0.28f),
-                    mainTexture = GradientTexture()
-                };
             Graphics.DrawMesh(mesh, Matrix4x4.identity, material, 0);
         }
 
@@ -100,18 +102,21 @@ namespace DirectedSearchlights
             CenterCell = IntVec3.Invalid;
         }
 
-        private static Texture2D GradientTexture()
+        private static Texture2D GradientTexture(int diameterStep)
         {
+            Texture2D gradient = Gradients[diameterStep];
             if (gradient != null) return gradient;
+            float aimDiameter = (float)diameterStep / GradientStepsPerCell;
             gradient = new Texture2D(64, 64, TextureFormat.RGBA32, false);
             gradient.wrapMode = TextureWrapMode.Clamp;
             for (int y = 0; y < 64; y++)
             for (int x = 0; x < 64; x++)
             {
-                float alpha = BeamGrid.GradientAlpha((x + 0.5f) / 64f, (y + 0.5f) / 64f);
-                gradient.SetPixel(x, y, new Color(1f, 1f, 1f, Mathf.Clamp01(alpha)));
+                float alpha = BeamGrid.GradientAlpha((x + 0.5f) / 64f, (y + 0.5f) / 64f, aimDiameter);
+                gradient.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
             }
             gradient.Apply(false, true);
+            Gradients[diameterStep] = gradient;
             return gradient;
         }
 
@@ -144,6 +149,9 @@ namespace DirectedSearchlights
             float halfAngleRadians = halfAngle * Mathf.Deg2Rad;
             float slope = Mathf.Tan(halfAngleRadians);
             float capDepth = range * slope;
+            // Short aims can hit the angle limit and be narrower than the configured diameter.
+            gradientDiameterStep = Mathf.Clamp(Mathf.RoundToInt(2f * capDepth * GradientStepsPerCell),
+                0, Gradients.Length - 1);
             // Enclose the full visual sector, including radial extrema between the sides.
             float boundsRayLength = (range + capDepth) / Mathf.Cos(halfAngleRadians);
             float leftRadians = (heading - halfAngle) * Mathf.Deg2Rad;
@@ -206,7 +214,7 @@ namespace DirectedSearchlights
                 float distance = Trace(map, origin, dx, dz, visualLimit, out ignored);
                 float bodyDistance = Mathf.Min(range, distance);
                 Vector3 direction = new Vector3(dx, 0f, dz);
-                // Split the texture interpolation at the aim distance to keep the beam body at its original brightness.
+                // Split at the aim distance so the cap fade leaves the body gradient intact.
                 vertices.Add(lens);
                 vertices.Add(lens + direction * bodyDistance);
                 vertices.Add(lens + direction * distance);

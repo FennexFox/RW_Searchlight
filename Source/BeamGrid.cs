@@ -34,7 +34,7 @@ namespace DirectedSearchlights
             return FocusV + (1f - FocusV) * ((distance - range) / (visualLimit - range));
         }
 
-        internal static float GradientAlpha(float u, float v)
+        internal static float GradientAlpha(float u, float v, float aimDiameter)
         {
             float lateral = Math.Abs(u * 2f - 1f);
             float radial;
@@ -48,7 +48,12 @@ namespace DirectedSearchlights
                 float remaining = Math.Max(0f, (1f - v) / (1f - FocusV));
                 radial = 0.5f * remaining * remaining * (3f - 2f * remaining);
             }
-            float alpha = radial * (1f - lateral * lateral);
+            // Use a softened inverse-area curve for the overlay. A six-cell
+            // cross-section halves the alpha, preserving a visible center at
+            // full spread. The rounded cap continues the aim point's fade.
+            float diameter = aimDiameter * Math.Min(1f, v / FocusV);
+            float spread = diameter / 6f;
+            float alpha = radial * (1f - lateral * lateral) / (1f + spread * spread);
             return Math.Max(0f, Math.Min(1f, alpha));
         }
 

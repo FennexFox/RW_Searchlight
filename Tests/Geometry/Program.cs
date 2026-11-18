@@ -51,13 +51,29 @@ static class Program
         float focusV = BeamGrid.GradientV(aimRange, visualLimit, aimRange);
         float capMidpointV = BeamGrid.GradientV(aimRange, visualLimit, 61f);
         float endV = BeamGrid.GradientV(aimRange, visualLimit, visualLimit);
-        Check(BeamGrid.GradientAlpha(0.5f, 0f) == 0f &&
-              BeamGrid.GradientAlpha(0.5f, midpointV) == 0.75f &&
-              BeamGrid.GradientAlpha(0.5f, focusV) == 0.5f,
-            "gradient preserves beam body and aim brightness");
-        Check(BeamGrid.GradientAlpha(0f, midpointV) == 0f && BeamGrid.GradientAlpha(1f, midpointV) == 0f,
+        const float narrowDiameter = 2f;
+        const float wideDiameter = 6f;
+        float narrowMid = BeamGrid.GradientAlpha(0.5f, midpointV, narrowDiameter);
+        float wideMid = BeamGrid.GradientAlpha(0.5f, midpointV, wideDiameter);
+        float narrowFocus = BeamGrid.GradientAlpha(0.5f, focusV, narrowDiameter);
+        float wideFocus = BeamGrid.GradientAlpha(0.5f, focusV, wideDiameter);
+        Check(narrowMid > wideMid && narrowFocus > wideFocus && wideMid > wideFocus && wideFocus == 0.25f,
+            "a wider beam fades while keeping a visible center at maximum range");
+        float localWidthFocus = BeamGrid.GradientAlpha(0.5f, focusV, wideDiameter * 0.5f);
+        Check(Math.Abs(wideMid / 0.75f - localWidthFocus / 0.5f) < 0.001f,
+            "equal local diameters receive the same spread attenuation");
+        float shortFocusV = BeamGrid.GradientV(30f, 33f, 30f);
+        Check(BeamGrid.GradientAlpha(0.5f, shortFocusV, wideDiameter) == wideFocus,
+            "equal aim diameters have the same focus brightness at different ranges");
+        Check(BeamGrid.GradientAlpha(0.5f, 0f, wideDiameter) == 0f &&
+              BeamGrid.GradientAlpha(0.5f, focusV * 0.2f, narrowDiameter) <= 0.9f,
+            "the overlay fades in at the lens and does not increase its peak brightness");
+        Check(BeamGrid.GradientAlpha(0f, midpointV, wideDiameter) == 0f &&
+              BeamGrid.GradientAlpha(1f, midpointV, wideDiameter) == 0f &&
+              BeamGrid.GradientAlpha(0.25f, midpointV, wideDiameter) < wideMid,
             "gradient fades lateral edges");
-        Check(BeamGrid.GradientAlpha(0.5f, capMidpointV) == 0.25f && BeamGrid.GradientAlpha(0.5f, endV) == 0f,
+        Check(BeamGrid.GradientAlpha(0.5f, capMidpointV, wideDiameter) == wideFocus * 0.5f &&
+              BeamGrid.GradientAlpha(0.5f, endV, wideDiameter) == 0f,
             "cap fades to transparent after the aim point");
         float[] ranges = { 5f, 10f, 30f, 60f };
         float[] angles = { 24f, 22.620f, 7.628f, 3.818f };
