@@ -6,4 +6,9 @@
   <DS_SelectTarget>목표 선택</DS_SelectTarget>
   <DS_ClearTarget>목표 해제</DS_ClearTarget>
   <DS_SetDirection>방향 설정</DS_SetDirection>
+  <DS_AdjustSweep>회전 범위 조절</DS_AdjustSweep>
+  <DS_AdjustSweepDesc>회전 조사의 중심 방향과 전체 각도를 설정합니다. 마우스로 방향 지정, 가운데 클릭으로 각도 조절 전환, 좌클릭으로 확정, 우클릭이나 Escape로 취소합니다. Ctrl을 누르면 장애물에 가리지 않아 빛이 도달할 수 있는 칸을 표시합니다.</DS_AdjustSweepDesc>
+  <DS_SweepEditorHelp>마우스: 방향 · 가운데 클릭: 각도 조절 · 좌클릭: 확정 · 우클릭/Esc: 취소 · Ctrl: 조명 가능 범위</DS_SweepEditorHelp>
+  <DS_SweepEditorValues>방향: {0}° · 회전 각도: {1}°</DS_SweepEditorValues>
+  <DS_SweepWidthHelp>탐조등에 가까이 움직이면 좁아지고 멀리 움직이면 넓어집니다. 가운데 클릭: 각도 고정 · 좌클릭: 확정 · 우클릭/Esc: 취소 · Ctrl: 조명 가능 범위</DS_SweepWidthHelp>
 </LanguageData>

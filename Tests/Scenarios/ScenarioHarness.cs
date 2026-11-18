@@ -70,6 +70,7 @@ namespace SearchlightScenarioHarness
                     case 11: if (age >= 180) ZeroLamps(); break;
                     case 12: if (age >= 180) TenLamps(); break;
                     case TrackingStep: TickTracking(age); break;
+                    case SweepApiStep: if (age >= 1) TickSweepApi(age); break;
                 }
             }
             catch (Exception ex) { Fail("step=" + step + "; " + ex); }
@@ -79,6 +80,9 @@ namespace SearchlightScenarioHarness
         {
             Map map = Find.CurrentMap;
             origin = new IntVec3(Math.Max(25, Math.Min(map.Size.x - 75, map.Center.x - 55)), 0, map.Center.z);
+            List<Pawn> ambientPawns = map.mapPawns.AllPawnsSpawned.ToList();
+            foreach (Pawn pawn in ambientPawns)
+                pawn.DeSpawn();
             for (int z = -12; z <= 12; z++)
             for (int x = -2; x <= 62; x++)
             {
@@ -95,7 +99,8 @@ namespace SearchlightScenarioHarness
             tower.SetMode(SearchlightMode.Fixed);
             tower.SetAimCell(tower.Position + new IntVec3(20, 0, 0));
             SpawnTarget(origin + new IntVec3(12, 0, 0));
-            Write("setup; origin=" + origin + "; target=" + target.Position + "; power=" + Power(turret) + "/" + Power(tower));
+            Write("setup; origin=" + origin + "; target=" + target.Position + "; ambientPawnsDespawned=" + ambientPawns.Count +
+                "; power=" + Power(turret) + "/" + Power(tower));
             Next(1);
         }
 
@@ -259,7 +264,7 @@ namespace SearchlightScenarioHarness
             long elapsed = Clock.ElapsedMilliseconds - tenStart;
             Check(lamps.Count == 10 && lamps.All(l => l.IsOperating && l.SpotCell.IsValid), "ten lamps operate with spots");
             Write("perf-ten; ticks=180; elapsedMs=" + elapsed + "; zeroMs=" + zeroElapsed + "; active=" + lamps.Count);
-            Finish(true);
+            BeginSweepApi();
         }
 
         private static Building_Searchlight SpawnLamp(string defName, IntVec3 cell)

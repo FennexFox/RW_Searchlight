@@ -27,13 +27,30 @@ roofed.
 | Mode | Behavior |
 |---|---|
 | Fixed | Holds the direction and range set by the selected aim cell. |
-| Sweep | Sweeps up to 45 degrees to either side of the selected direction. If it loses its target, it resumes its sweep. |
+| Sweep | Sweeps within a configurable sector (90 degrees by default, adjustable from 1 to 360 degrees). Targets must remain inside that sector. If it loses its target, it resumes its sweep. |
 | Automatic | Patrols through 360 degrees and tracks valid hostile pawns. |
 
 Select a building and designate an aim cell to set its direction and patrol
 range. In Sweep and Automatic modes, you can also designate a pawn manually.
 The tower can detect outdoor enemies through walls, but the beam itself is
 occluded by walls and closed doors, just like the turret's beam.
+
+In Sweep mode, **Adjust sweep sector** opens a map preview with controls similar
+to Combat Extended's firing-arc editor: move the mouse to set the center
+direction, middle-click to adjust the width, then move toward the searchlight
+to narrow the sector or away to widen it. Middle-click again to lock the width,
+left-click to apply, or right-click/Escape to cancel. Hold Ctrl to highlight
+the outline of visible map cells within the sector and 60-cell reach that the
+beam can illuminate without crossing walls or closed doors. The displayed angle is the
+full sector width, not the beam width. Editing the sector preserves the patrol
+range set by the aim cell. Each building saves its own sector; existing saves
+retain the original 90-degree width. Selected sweep lights show their sector
+outline on the map.
+
+The editor uses the actual CE mouse conventions (its bundled tooltip reverses
+the confirm/cancel buttons). It does not require CE: CE's `CompFireArc` combines
+editing and gun-specific line-of-sight rendering in one override, with no hook
+to substitute the searchlight's beam obstruction rules.
 
 ## Beam and illumination
 
@@ -76,7 +93,8 @@ light or CE calculations.
 
 The bundled 1.6 DLL is rebuilt from current source. The 1.7 DLL retains the
 earlier rounded-cap build and does not include the latest spread attenuation
-or saved-heading fallback. Rebuild it with a 1.7 installation before releasing
+or saved-heading fallback, and does not include the adjustable sweep sector.
+Rebuild it with a 1.7 installation before releasing
 those source changes for 1.7.
 
 ## Build

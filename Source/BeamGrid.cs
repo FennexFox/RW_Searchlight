@@ -41,7 +41,7 @@ namespace DirectedSearchlights
             if (v <= FocusV)
             {
                 float distance = v / FocusV;
-                radial = Math.Min(1f, distance * 5f) * (1f - 0.5f * distance);
+                radial = Math.Min(1f, 0.55f + distance * 2.25f) * (1f - 0.5f * distance);
             }
             else
             {
@@ -58,15 +58,15 @@ namespace DirectedSearchlights
         }
 
         internal static float Trace(int originX, int originZ, float dx, float dz, float limit,
-            Func<int, int, bool> transparent, out int lastX, out int lastZ)
+            Func<int, int, bool> transparent, out int lastX, out int lastZ, float offsetX = 0f, float offsetZ = 0f)
         {
             int x = originX, z = originZ;
             lastX = x;
             lastZ = z;
             int stepX = dx > 0f ? 1 : -1;
             int stepZ = dz > 0f ? 1 : -1;
-            float nextX = Math.Abs(dx) < 0.000001f ? float.PositiveInfinity : 0.5f / Math.Abs(dx);
-            float nextZ = Math.Abs(dz) < 0.000001f ? float.PositiveInfinity : 0.5f / Math.Abs(dz);
+            float nextX = Math.Abs(dx) < 0.000001f ? float.PositiveInfinity : (0.5f - stepX * offsetX) / Math.Abs(dx);
+            float nextZ = Math.Abs(dz) < 0.000001f ? float.PositiveInfinity : (0.5f - stepZ * offsetZ) / Math.Abs(dz);
             float deltaX = Math.Abs(dx) < 0.000001f ? float.PositiveInfinity : 1f / Math.Abs(dx);
             float deltaZ = Math.Abs(dz) < 0.000001f ? float.PositiveInfinity : 1f / Math.Abs(dz);
             while (true)

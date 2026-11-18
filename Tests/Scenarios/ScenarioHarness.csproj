@@ -9,6 +9,7 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="UnityEngine.IMGUIModule"><HintPath>$(RimWorldDir)/RimWorldWin64_Data/Managed/UnityEngine.IMGUIModule.dll</HintPath><Private>False</Private></Reference>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net472" Version="1.0.3" PrivateAssets="all" />
     <Reference Include="Assembly-CSharp"><HintPath>$(RimWorldDir)/RimWorldWin64_Data/Managed/Assembly-CSharp.dll</HintPath><Private>False</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(RimWorldDir)/RimWorldWin64_Data/Managed/UnityEngine.CoreModule.dll</HintPath><Private>False</Private></Reference>

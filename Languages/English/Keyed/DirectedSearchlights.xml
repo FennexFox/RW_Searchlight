@@ -6,4 +6,9 @@
   <DS_SelectTarget>Select target</DS_SelectTarget>
   <DS_ClearTarget>Clear target</DS_ClearTarget>
   <DS_SetDirection>Set direction</DS_SetDirection>
+  <DS_AdjustSweep>Adjust sweep sector</DS_AdjustSweep>
+  <DS_AdjustSweepDesc>Set the sweep direction and full angular width. Move the mouse to aim; middle-click to toggle angle adjustment; left-click to apply; right-click or Escape to cancel. Hold Ctrl to show cells the beam can reach through the current obstacles.</DS_AdjustSweepDesc>
+  <DS_SweepEditorHelp>Mouse: direction · Middle-click: adjust angle · Left-click: apply · Right-click/Esc: cancel · Ctrl: reachable cells</DS_SweepEditorHelp>
+  <DS_SweepEditorValues>Direction: {0}° · Sweep: {1}°</DS_SweepEditorValues>
+  <DS_SweepWidthHelp>Move toward the light to narrow the sector or away to widen it. Middle-click to lock the width · Left-click to apply · Right-click/Esc to cancel · Ctrl for reachable cells</DS_SweepWidthHelp>
 </LanguageData>

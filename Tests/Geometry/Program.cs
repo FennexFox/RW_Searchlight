@@ -38,6 +38,9 @@ static class Program
             "supercover blocks corner grazing");
         Check(Math.Abs(Trace(diagonal, diagonal, 5f, clear, out x, out z) - 5f) < 0.001f && x == 4 && z == 4,
             "clear diagonal traverses corners");
+        float clipped = BeamGrid.Trace(0, 0, 1f, 0f, 5f, (cx, cz) => cx < 1,
+            out x, out z, 0.27f, -0.1f);
+        Check(Math.Abs(clipped - 0.23f) < 0.0001f && x == 0, "off-center aperture ray stops at the wall face");
         const float aimRange = 60f;
         const float capDepth = 2f;
         float visualLimit = BeamGrid.VisualRayLimit(aimRange, capDepth, 0.5f);
@@ -65,9 +68,9 @@ static class Program
         float shortFocusV = BeamGrid.GradientV(30f, 33f, 30f);
         Check(BeamGrid.GradientAlpha(0.5f, shortFocusV, wideDiameter) == wideFocus,
             "equal aim diameters have the same focus brightness at different ranges");
-        Check(BeamGrid.GradientAlpha(0.5f, 0f, wideDiameter) == 0f &&
+        Check(BeamGrid.GradientAlpha(0.5f, 0f, wideDiameter) > 0f &&
               BeamGrid.GradientAlpha(0.5f, focusV * 0.2f, narrowDiameter) <= 0.9f,
-            "the overlay fades in at the lens and does not increase its peak brightness");
+            "the overlay is visible at the lens and does not increase its peak brightness");
         Check(BeamGrid.GradientAlpha(0f, midpointV, wideDiameter) == 0f &&
               BeamGrid.GradientAlpha(1f, midpointV, wideDiameter) == 0f &&
               BeamGrid.GradientAlpha(0.25f, midpointV, wideDiameter) < wideMid,
