@@ -1,5 +1,7 @@
 # Directed Searchlights for RimWorld 1.6
 
+Future work is planned separately in the [post-MVP update plans](../post-mvp/00-master-plan.md): detection alerts with target sharing, followed by exact per-cell beam illumination. Those plans do not change this MVP's completed acceptance scope.
+
 ## Issue Target And Scope Summary
 
 - Issue target: Directed Searchlights MVP
