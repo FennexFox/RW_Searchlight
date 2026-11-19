@@ -30,10 +30,9 @@ roofed.
 
 Select a building and designate an aim cell to set its direction and patrol
 range. In Sweep and Automatic modes, **Select target** gives a valid hostile
-pawn priority. Otherwise, the light keeps its current target while it remains
-valid. When acquiring a new target, the turret chooses the nearest eligible
-pawn it can see. The tower can also detect unroofed hostiles behind cover and
-prefers visible targets before comparing distances. Walls and closed doors
+pawn priority. The turret can acquire hostiles it can see. The tower can also
+detect unroofed hostiles behind cover and prefers visible targets under all
+three sharing policies. Walls and closed doors
 block both beams. When a target moves, the head turns and the endpoint travels
 to the new position.
 
@@ -48,6 +47,34 @@ In Sweep mode, choose **Adjust sweep sector** to open the map preview.
 Each light saves its own sector and shows the outline when selected. Editing
 the sector preserves the patrol range set with **Set direction**. Lights from
 saves created before the sector editor start with the original 90-degree width.
+
+### Sharing targets and reporting hostiles
+
+In Sweep and Automatic modes, the **Target sharing** setting controls how a
+light chooses among eligible hostiles on its map.
+
+| Policy | When the light needs a target |
+|---|---|
+| Spread | Prefer the least-reserved target it can see. A light sharing a lock can move to a free, visible target after holding its lock for at least 120 ticks and finding the same alternative on two consecutive scans. |
+| Independent | Use the original target selection and keep a valid lock. |
+| Concentrate | Choose the best eligible target regardless of other lights' reservations. Several lights can choose the same pawn. |
+
+New lights start in Spread. Lights already in a pre-coordination save start
+in Independent. A manual target takes priority in all three policies. Several
+lights can be assigned to the same pawn by hand.
+
+**Detection alerts** offers Off, Visual, or Visual + sound. Visual is the
+default. You can change the default for newly built lights in Mod Settings.
+Detections on the same map within 60 ticks share a message. Click it to visit
+the original detection cell. A brief marker identifies hostiles that a light
+can still detect, including unroofed targets a tower detects behind a wall.
+The beam still has to reach a pawn to illuminate it.
+
+A repeat alert requires a fresh acquisition, at least 2,500 ticks since the
+previous notification, and a period of 120 consecutive ticks outside every
+operating detector's coverage. Switching targets while an enemy remains
+detectable does not rearm the alert. Lights with alerts turned off still
+contribute to detection coverage.
 
 The sweep editor is included in both the RimWorld 1.6 and 1.7 packages.
 Combat Extended is optional.
@@ -129,11 +156,13 @@ and
 
 ## Verification
 
-The [verification record](docs/verification/README.md) covers earlier gameplay
-and compatibility runs and includes reproduction commands.
+The [coordination verification record](docs/verification/coordination/README.md)
+includes the shared-target night scene, migration checks and reproduction
+commands. Earlier lighting and compatibility results are in the
+[MVP verification record](docs/verification/README.md).
 
-Both screenshots were captured at night in RimWorld 1.7.5013 with the bundled
-mod. Each turret is in Fixed mode, aimed 18 cells away with the default
+Both screenshots were captured at night in RimWorld 1.7.5013. Each turret is
+in Fixed mode, aimed 18 cells away with the default
 four-cell beam diameter.
 
 ![A turret projects a widening beam to an illuminated spot 18 cells away at night](docs/verification/fixed-beam-1.7.5013.png)

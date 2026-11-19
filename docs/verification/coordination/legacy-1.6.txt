@@ -1,0 +1,8 @@
+expected the ten-lamp vanilla runtime fixture
+all ten old lamps migrated to Independent + Visual
+original target lock restored
+original pawn reacquired
+restoration and reacquisition produced zero messages
+new hostile acquired
+one message for the new hostile
+PASS legacy
