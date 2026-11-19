@@ -20,11 +20,13 @@ namespace DirectedSearchlights
         private const float MinSweepHalfAngle = 0.5f;
         private const float MaxSweepHalfAngle = 180f;
         private const float SweepDegreesPerTick = 0.4f;
-        private const int AcquireInterval = 30;
+        internal const int AcquireInterval = 30;
         private const float TurnDegreesPerTick = 2f;
         private const float RangeCellsPerTick = 0.6f;
 
         private SearchlightMode mode = SearchlightMode.Automatic;
+        private AssignmentPolicy policy = AssignmentPolicy.Spread;
+        private DetectionAlertMode alertMode = SearchlightSettings.DefaultAlertMode;
         private float fixedHeading = float.NaN;
         private float fixedRange = BeamRange;
         private float sweepHalfAngle = DefaultSweepHalfAngle;
@@ -35,8 +37,10 @@ namespace DirectedSearchlights
         private int sweepDirection = 1;
         private Pawn manualTarget;
         private Pawn lockedTarget;
+        private int lockSinceTick = -1;
         private Thing lightSpot;
         private BeamField beam;
+        private SearchlightMap searchlights;
         private CompPowerTrader power;
         private CompFlickable flick;
         private int lastAcquireTick = -1;
@@ -44,6 +48,8 @@ namespace DirectedSearchlights
         private static Graphic headGraphic;
 
         public SearchlightMode CurrentMode => mode;
+        public AssignmentPolicy Policy => policy;
+        public DetectionAlertMode AlertMode => alertMode;
         public Pawn LockedTarget => lockedTarget;
         public float AimHeading => aimHeading;
         public float AimRange => aimRange;
@@ -54,6 +60,8 @@ namespace DirectedSearchlights
             (flick == null || flick.SwitchIsOn) && (!RequiresOpenSky || !Position.Roofed(Map));
         public int AcquisitionCount => acquisitionCount;
         public int LastAcquireTick => lastAcquireTick;
+        internal int LockSinceTick => lockSinceTick;
+        internal bool HasManualTarget => manualTarget != null;
 
         protected virtual bool DetectThroughWalls => false;
         protected virtual bool RequiresOpenSky => false;
@@ -75,7 +83,8 @@ namespace DirectedSearchlights
                 fixedHeading = Rotation.AsAngle;
             if (beam == null)
                 beam = new BeamField();
-            map.GetComponent<SearchlightMap>()?.Register(this);
+            searchlights = map.GetComponent<SearchlightMap>();
+            searchlights.Register(this, respawningAfterLoad);
             if (!respawningAfterLoad) RefreshBeamAndSpot();
         }
 
@@ -87,8 +96,8 @@ namespace DirectedSearchlights
 
         public override void DeSpawn(DestroyMode mode = DestroyMode.Vanish)
         {
-            Map oldMap = Map;
-            oldMap?.GetComponent<SearchlightMap>()?.Unregister(this);
+            searchlights?.Unregister(this);
+            searchlights = null;
             ClearVisuals();
             beam?.Dispose();
             beam = null;
@@ -101,6 +110,8 @@ namespace DirectedSearchlights
             if (Scribe.mode == LoadSaveMode.Saving && !IsFinite(sweepHalfAngle))
                 sweepHalfAngle = DefaultSweepHalfAngle;
             Scribe_Values.Look(ref mode, "searchlightMode", SearchlightMode.Automatic);
+            Scribe_Values.Look(ref policy, "searchlightAssignmentPolicy", AssignmentPolicy.Independent);
+            Scribe_Values.Look(ref alertMode, "searchlightAlertMode", DetectionAlertMode.Visual);
             Scribe_Values.Look(ref fixedHeading, "searchlightFixedHeading", float.NaN);
             Scribe_Values.Look(ref fixedRange, "searchlightFixedRange", BeamRange);
             Scribe_Values.Look(ref sweepHalfAngle, "searchlightSweepHalfAngle", DefaultSweepHalfAngle);
@@ -111,9 +122,12 @@ namespace DirectedSearchlights
             Scribe_Values.Look(ref sweepDirection, "searchlightSweepDirection", 1);
             Scribe_References.Look(ref manualTarget, "searchlightManualTarget");
             Scribe_References.Look(ref lockedTarget, "searchlightLockedTarget");
+            Scribe_Values.Look(ref lockSinceTick, "searchlightLockSinceTick", -1);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 if (!Enum.IsDefined(typeof(SearchlightMode), mode)) mode = SearchlightMode.Automatic;
+                if (!Enum.IsDefined(typeof(AssignmentPolicy), policy)) policy = AssignmentPolicy.Independent;
+                if (!Enum.IsDefined(typeof(DetectionAlertMode), alertMode)) alertMode = DetectionAlertMode.Visual;
                 if (float.IsNaN(fixedHeading) || float.IsInfinity(fixedHeading))
                     fixedHeading = Rotation.AsAngle;
                 if (float.IsNaN(patrolHeading) || float.IsInfinity(patrolHeading))
@@ -132,28 +146,21 @@ namespace DirectedSearchlights
         protected override void Tick()
         {
             base.Tick();
+            int tick = Find.TickManager.TicksGame;
+            searchlights.BeforeLightTick(tick);
+            searchlights.Reconcile(this, tick);
             if (!IsOperating)
             {
-                lockedTarget = null;
                 ClearVisuals();
                 return;
             }
 
-            ReleaseInvalidTargets();
-            if (mode != SearchlightMode.Fixed &&
-                (Find.TickManager.TicksGame + thingIDNumber) % AcquireInterval == 0)
-            {
-                AcquireTarget();
-                lastAcquireTick = Find.TickManager.TicksGame;
-                acquisitionCount++;
-            }
             float desiredHeading;
             float desiredRange;
-            if (manualTarget != null || lockedTarget != null)
+            if (lockedTarget != null)
             {
-                Pawn target = manualTarget ?? lockedTarget;
-                desiredHeading = HeadingTo(target.Position);
-                desiredRange = Mathf.Min(BeamRange, Mathf.Sqrt(target.Position.DistanceToSquared(Position)));
+                desiredHeading = HeadingTo(lockedTarget.Position);
+                desiredRange = Mathf.Min(BeamRange, Mathf.Sqrt(lockedTarget.Position.DistanceToSquared(Position)));
             }
             else if (mode == SearchlightMode.Sweep)
             {
@@ -176,49 +183,71 @@ namespace DirectedSearchlights
             RefreshBeamAndSpot();
         }
 
-        private void AcquireTarget()
+        internal bool ScanDue(int tick)
         {
-            ReleaseInvalidTargets();
-            if (manualTarget != null)
-            {
-                lockedTarget = manualTarget;
-                return;
-            }
-            if (lockedTarget != null) return;
-            TargetCandidate best = default;
-            foreach (Pawn pawn in Map.mapPawns.AllPawnsSpawned)
-            {
-                if (!TryDescribeTarget(pawn, out TargetCandidate candidate)) continue;
-                if (best.Pawn == null || candidate.Precedes(best)) best = candidate;
-            }
-            lockedTarget = best.Pawn;
+            return mode != SearchlightMode.Fixed &&
+                (tick + thingIDNumber) % AcquireInterval == 0 && IsOperating;
         }
 
-        private bool ValidTarget(Pawn pawn) => TargetEligible(pawn, out _);
+        internal void RecordScan(int tick)
+        {
+            lastAcquireTick = tick;
+            acquisitionCount++;
+        }
 
-        internal bool TryDescribeTarget(Pawn pawn, out TargetCandidate candidate)
+        internal Pawn RetainedTarget()
+        {
+            if (mode == SearchlightMode.Fixed || !IsOperating) return null;
+            if (manualTarget != null)
+            {
+                if (ValidTarget(manualTarget)) return manualTarget;
+                if (lockedTarget == manualTarget)
+                {
+                    manualTarget = null;
+                    return null;
+                }
+                manualTarget = null;
+            }
+            return ValidTarget(lockedTarget) ? lockedTarget : null;
+        }
+
+        internal void ApplyLock(Pawn pawn, int tick)
+        {
+            if (pawn == null) lockSinceTick = -1;
+            else if (lockedTarget != pawn || lockSinceTick < 0 || lockSinceTick > tick) lockSinceTick = tick;
+            lockedTarget = pawn;
+        }
+
+        private bool ValidTarget(Pawn pawn) => IsDetectableHostile(pawn, Map) && WithinDetectionArea(pawn.Position, out _);
+        internal bool CanDetect(Pawn pawn) => mode != SearchlightMode.Fixed && IsOperating && ValidTarget(pawn);
+
+        // The coordinator has already checked hostility and visibility state for this batch.
+        internal bool TryDescribeCandidate(Pawn pawn, out TargetCandidate candidate)
         {
             candidate = default;
-            if (!TargetEligible(pawn, out int distanceSquared)) return false;
+            if (!WithinDetectionArea(pawn.Position, out int distanceSquared)) return false;
             candidate = new TargetCandidate(pawn, distanceSquared,
                 !DetectThroughWalls || BeamField.Clear(Map, Position, pawn.Position));
             return true;
         }
 
-        private bool TargetEligible(Pawn pawn, out int distanceSquared)
+        private bool WithinDetectionArea(IntVec3 cell, out int distanceSquared)
         {
-            distanceSquared = 0;
-            if (pawn == null || pawn.Destroyed || !pawn.Spawned || pawn.Map != Map || pawn.Dead ||
-                pawn.Downed || pawn.IsPsychologicallyInvisible() || pawn.Fogged() ||
-                !pawn.HostileTo(Faction.OfPlayer)) return false;
-            int dx = pawn.Position.x - Position.x;
-            int dz = pawn.Position.z - Position.z;
+            int dx = cell.x - Position.x;
+            int dz = cell.z - Position.z;
             distanceSquared = dx * dx + dz * dz;
             if (distanceSquared > BeamRange * BeamRange) return false;
-            if (!IsWithinSweepArc(pawn.Position)) return false;
+            if (!IsWithinSweepArc(cell)) return false;
             if (DetectThroughWalls)
-                return !pawn.Position.Roofed(Map);
-            return BeamField.Clear(Map, Position, pawn.Position);
+                return !cell.Roofed(Map);
+            return BeamField.Clear(Map, Position, cell);
+        }
+
+        internal static bool IsDetectableHostile(Pawn pawn, Map map)
+        {
+            return pawn != null && !pawn.Destroyed && pawn.Spawned && pawn.Map == map && !pawn.Dead &&
+                !pawn.Downed && !pawn.IsPsychologicallyInvisible() && !pawn.Fogged() &&
+                pawn.HostileTo(Faction.OfPlayer);
         }
 
         private bool IsWithinSweepArc(IntVec3 cell)
@@ -230,8 +259,7 @@ namespace DirectedSearchlights
 
         private void ReleaseInvalidTargets()
         {
-            if (manualTarget != null && !ValidTarget(manualTarget)) manualTarget = null;
-            if (lockedTarget != null && !ValidTarget(lockedTarget)) lockedTarget = null;
+            searchlights?.Reconcile(this, Find.TickManager.TicksGame);
         }
 
         private float HeadingTo(IntVec3 cell)
@@ -311,7 +339,7 @@ namespace DirectedSearchlights
         {
             if (pawn != null && !CanDesignate(pawn)) return;
             manualTarget = pawn;
-            lockedTarget = pawn;
+            SetImmediateLock(IsOperating ? pawn : null);
             lastAcquireTick = -1;
         }
 
@@ -321,9 +349,34 @@ namespace DirectedSearchlights
         {
             mode = next;
             manualTarget = null;
-            lockedTarget = null;
+            SetImmediateLock(null);
             if (next == SearchlightMode.Sweep) { sweepOffset = 0f; sweepDirection = 1; }
             lastAcquireTick = -1;
+        }
+
+        public void SetPolicy(AssignmentPolicy next)
+        {
+            if (policy == next || !Enum.IsDefined(typeof(AssignmentPolicy), next)) return;
+            policy = next;
+            searchlights?.ResetRedistribution(this);
+        }
+
+        public void SetAlertMode(DetectionAlertMode next)
+        {
+            if (Enum.IsDefined(typeof(DetectionAlertMode), next)) alertMode = next;
+        }
+
+        private void SetImmediateLock(Pawn pawn)
+        {
+            if (searchlights != null) searchlights.ChangeLock(this, pawn, Find.TickManager.TicksGame);
+            else ApplyLock(null, -1);
+        }
+
+        protected override void ReceiveCompSignal(string signal)
+        {
+            base.ReceiveCompSignal(signal);
+            if (Spawned && (signal == CompPowerTrader.PowerTurnedOffSignal || signal == CompFlickable.FlickedOffSignal))
+                SetImmediateLock(null);
         }
 
         public void SetAimCell(IntVec3 cell)
@@ -365,6 +418,7 @@ namespace DirectedSearchlights
         public override IEnumerable<Gizmo> GetGizmos()
         {
             foreach (Gizmo gizmo in base.GetGizmos()) yield return gizmo;
+            foreach (Gizmo gizmo in CoordinationGizmos()) yield return gizmo;
             if (mode == SearchlightMode.Sweep) yield return CreateSweepArcCommand();
             foreach (SearchlightMode choice in Enum.GetValues(typeof(SearchlightMode)))
             {
@@ -425,9 +479,10 @@ namespace DirectedSearchlights
             Direct = direct;
         }
 
-        public bool Precedes(TargetCandidate other)
+        public bool Precedes(TargetCandidate other, int reservations, int otherReservations)
         {
             if (Direct != other.Direct) return Direct;
+            if (reservations != otherReservations) return reservations < otherReservations;
             if (DistanceSquared != other.DistanceSquared) return DistanceSquared < other.DistanceSquared;
             return Pawn.thingIDNumber < other.Pawn.thingIDNumber;
         }

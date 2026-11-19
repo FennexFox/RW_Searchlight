@@ -11,4 +11,16 @@
   <DS_SweepEditorHelp>Mouse: direction · Middle-click: adjust angle · Left-click: apply · Right-click/Esc: cancel · Ctrl: reachable cells</DS_SweepEditorHelp>
   <DS_SweepEditorValues>Direction: {0}° · Sweep: {1}°</DS_SweepEditorValues>
   <DS_SweepWidthHelp>Move toward the light to narrow the sector or away to widen it. Middle-click to lock the width · Left-click to apply · Right-click/Esc to cancel · Ctrl for reachable cells</DS_SweepWidthHelp>
+  <DS_AssignmentPolicy>Target sharing</DS_AssignmentPolicy>
+  <DS_AssignmentPolicyDesc>Choose how the selected searchlights share targets in Sweep and Automatic modes. Independent keeps the original targeting behavior. Spread favors reachable targets that other lights have left unassigned. Concentrate allows lights to share their preferred target.</DS_AssignmentPolicyDesc>
+  <DS_PolicyIndependent>Independent</DS_PolicyIndependent>
+  <DS_PolicySpread>Spread</DS_PolicySpread>
+  <DS_PolicyConcentrate>Concentrate</DS_PolicyConcentrate>
+  <DS_DetectionAlerts>Detection alerts</DS_DetectionAlerts>
+  <DS_DetectionAlertsDesc>Choose how the selected searchlights report new hostile detections in Sweep and Automatic modes.</DS_DetectionAlertsDesc>
+  <DS_AlertModeOff>Off</DS_AlertModeOff>
+  <DS_AlertModeVisual>Visual</DS_AlertModeVisual>
+  <DS_AlertModeVisualAndSound>Visual + sound</DS_AlertModeVisualAndSound>
+  <DS_DetectedHostile>Searchlights detected a hostile pawn.</DS_DetectedHostile>
+  <DS_DetectedHostiles>Searchlights detected {0} hostile pawns.</DS_DetectedHostiles>
 </LanguageData>

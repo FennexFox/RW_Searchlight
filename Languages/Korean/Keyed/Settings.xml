@@ -1,1 +1,4 @@
-<LanguageData><DS_BeamDiameter>조준 거리에서의 빔 지름: {0}타일</DS_BeamDiameter></LanguageData>
+<LanguageData>
+  <DS_BeamDiameter>조준 거리에서의 빔 지름: {0}타일</DS_BeamDiameter>
+  <DS_DefaultAlertMode>새 탐조등의 탐지 알림</DS_DefaultAlertMode>
+</LanguageData>

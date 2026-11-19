@@ -11,4 +11,16 @@
   <DS_SweepEditorHelp>마우스: 방향 · 가운데 클릭: 각도 조절 · 좌클릭: 확정 · 우클릭/Esc: 취소 · Ctrl: 조명 가능 범위</DS_SweepEditorHelp>
   <DS_SweepEditorValues>방향: {0}° · 회전 각도: {1}°</DS_SweepEditorValues>
   <DS_SweepWidthHelp>탐조등에 가까이 움직이면 좁아지고 멀리 움직이면 넓어집니다. 가운데 클릭: 각도 고정 · 좌클릭: 확정 · 우클릭/Esc: 취소 · Ctrl: 조명 가능 범위</DS_SweepWidthHelp>
+  <DS_AssignmentPolicy>목표 공유</DS_AssignmentPolicy>
+  <DS_AssignmentPolicyDesc>선택한 탐조등이 회전 조사 및 자동 모드에서 목표를 선택하는 방식을 설정합니다. 독립은 기존 목표 선택 방식을 사용합니다. 분산은 빛이 닿는 목표 중 다른 탐조등이 선택하지 않은 목표를 우선합니다. 집중은 여러 탐조등이 같은 목표를 우선할 수 있습니다.</DS_AssignmentPolicyDesc>
+  <DS_PolicyIndependent>독립</DS_PolicyIndependent>
+  <DS_PolicySpread>분산</DS_PolicySpread>
+  <DS_PolicyConcentrate>집중</DS_PolicyConcentrate>
+  <DS_DetectionAlerts>탐지 알림</DS_DetectionAlerts>
+  <DS_DetectionAlertsDesc>선택한 탐조등이 회전 조사 및 자동 모드에서 적을 새로 탐지했을 때 알리는 방식을 설정합니다.</DS_DetectionAlertsDesc>
+  <DS_AlertModeOff>끄기</DS_AlertModeOff>
+  <DS_AlertModeVisual>화면 알림</DS_AlertModeVisual>
+  <DS_AlertModeVisualAndSound>화면 및 소리 알림</DS_AlertModeVisualAndSound>
+  <DS_DetectedHostile>탐조등이 적 한 명을 탐지했습니다.</DS_DetectedHostile>
+  <DS_DetectedHostiles>탐조등이 적 {0}명을 탐지했습니다.</DS_DetectedHostiles>
 </LanguageData>
