@@ -23,7 +23,9 @@ namespace DirectedSearchlights
         internal int CandidateSnapshotBuildCount => targets.CandidateSnapshotBuildCount;
         internal int CandidateEvaluationCount => targets.CandidateEvaluationCount;
 
-        public void Register(Building_Searchlight light, bool respawningAfterLoad)
+        public void Register(Building_Searchlight light) => Register(light, false);
+
+        internal void Register(Building_Searchlight light, bool respawningAfterLoad)
         {
             int index = lights.BinarySearch(light, ById);
             if (index < 0) lights.Insert(~index, light);
