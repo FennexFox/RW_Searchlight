@@ -242,6 +242,7 @@ namespace SearchlightRuntimeHarness
             Check((Read(lamps[0], "LockedTarget") as Pawn) != target, "turret loses lock on blocked pawn");
             Check((Read(lamps[1], "LockedTarget") as Pawn) == target, "tower retains lock through wall");
             wall.Destroy();
+            Write("wall-removed; elapsedMs=" + Clock.ElapsedMilliseconds);
             var map = Find.CurrentMap;
             var turret = DefDatabase<ThingDef>.GetNamed("DS_SearchlightTurret", false);
             var power = DefDatabase<ThingDef>.GetNamed("VanometricPowerCell", false);
@@ -251,6 +252,7 @@ namespace SearchlightRuntimeHarness
                 lamps.Add(GenSpawn.Spawn(turret, p, map));
                 generators.Add(GenSpawn.Spawn(power, p + new IntVec3(-1, 0, 0), map));
             }
+            Write("ten-lamp-fixture-ready; elapsedMs=" + Clock.ElapsedMilliseconds);
             Advance(3);
         }
 
@@ -307,7 +309,12 @@ namespace SearchlightRuntimeHarness
         {
             glow = shift = float.NaN;
             var assembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == "CombatExtended");
-            if (assembly == null) { Write("ce-" + label + "; assembly=absent"); return false; }
+            if (assembly == null)
+            {
+                if (GenCommandLine.CommandLineArgPassed("ds-require-ce")) throw new InvalidOperationException("The CE case requires a loaded CombatExtended assembly.");
+                Write("ce-" + label + "; assembly=absent");
+                return false;
+            }
             if (!ceShooterAnchor.IsValid) { ceShooterAnchor = shooter.Position; ceTargetAnchor = target.Position; }
             else Check(shooter.Position == ceShooterAnchor && target.Position == ceTargetAnchor, "CE positions fixed at " + label);
             var trackerType = assembly.GetType("CombatExtended.LightingTracker");

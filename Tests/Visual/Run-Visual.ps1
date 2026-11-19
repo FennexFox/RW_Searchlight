@@ -1,6 +1,9 @@
-param([int]$TimeoutSeconds = 180)
+param(
+    [int]$TimeoutSeconds = 180,
+    [string]$RimWorldPath = (Join-Path $PSScriptRoot '..\..\..\..')
+)
 $ErrorActionPreference = 'Stop'
-$game = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..\..')).Path
+$game = (Resolve-Path -LiteralPath $RimWorldPath).Path
 $exe = Join-Path $game 'RimWorld.exe'
 if ((Test-Path -LiteralPath $exe -PathType Leaf) -and
     (Test-Path -LiteralPath (Join-Path $game 'Assembly-CSharp.dll') -PathType Leaf)) {
@@ -20,6 +23,7 @@ $harness = Join-Path $profile 'HarnessMod'
 $assemblyDir = Join-Path $harness 'Assemblies'
 $about = Join-Path $harness 'About'
 New-Item -ItemType Directory -Path $config,$about,$assemblyDir | Out-Null
+'<Prefs><runInBackground>True</runInBackground></Prefs>' | Set-Content -LiteralPath (Join-Path $config 'Prefs.xml') -Encoding utf8
 @"
 <ModMetaData>
   <name>Searchlight Visual Harness</name>
@@ -51,6 +55,9 @@ try {
     }
     $process = Start-Process -FilePath $exe -ArgumentList $argLine -WorkingDirectory $game -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput (Join-Path $profile 'console.log') -RedirectStandardError (Join-Path $profile 'console-error.log')
+    # Keep the OS handle available for ExitCode after a fast game shutdown.
+    $null = $process.Handle
+    if ($gameVersion -eq '1.7') { & (Join-Path $PSScriptRoot '../Enable-TestRendering.ps1') -GameProcess $process }
     if (!$process.WaitForExit($TimeoutSeconds * 1000)) {
         $process.Kill()
         $process.WaitForExit()

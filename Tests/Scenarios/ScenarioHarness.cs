@@ -36,7 +36,8 @@ namespace SearchlightScenarioHarness
             GenCommandLine.TryGetCommandLineArg("ds-scenario-result", out resultPath);
             if (string.IsNullOrEmpty(resultPath))
                 resultPath = Path.Combine(GenFilePaths.SaveDataFolderPath, "scenario-results.txt");
-            Write("created; assembly=" + typeof(Building_Searchlight).Assembly.GetName().Version);
+            Write("created; game=" + VersionControl.CurrentVersionString +
+                "; assembly=" + typeof(Building_Searchlight).Assembly.GetName().Version);
         }
 
         public override void StartedNewGame()
@@ -100,7 +101,7 @@ namespace SearchlightScenarioHarness
             tower.SetAimCell(tower.Position + new IntVec3(20, 0, 0));
             SpawnTarget(origin + new IntVec3(12, 0, 0));
             Write("setup; origin=" + origin + "; target=" + target.Position + "; ambientPawnsDespawned=" + ambientPawns.Count +
-                "; power=" + Power(turret) + "/" + Power(tower));
+                "; policy=" + turret.Policy + "/" + tower.Policy + "; power=" + Power(turret) + "/" + Power(tower));
             Next(1);
         }
 
@@ -150,7 +151,8 @@ namespace SearchlightScenarioHarness
             Check(target.Position.x == origin.x + 60, "60-cell target stayed in place");
             Check(turret.LockedTarget == target, "60-cell target acquired");
             Check(turret.AimRange == 60f && turret.SpotCell == target.Position,
-                "60-cell beam reaches and illuminates the acquired pawn");
+                $"60-cell beam reaches and illuminates the acquired pawn (aim={turret.AimRange:R} at {turret.AimHeading:R}, " +
+                $"spot={turret.SpotCell}, target={target.Position}, origin={origin})");
             var spot = target.Position.GetThingList(Find.CurrentMap).Single(t => t.def.defName == "DS_LightSpot");
             Check(Math.Abs(spot.TryGetComp<CompGlower>().GlowRadius - 3f) < 0.01f, "four-tile beam has physical radius two plus grid origin offset");
             Write("range60 PASS; locked=" + turret.LockedTarget + "; acquisitions=" + turret.AcquisitionCount);
@@ -270,6 +272,8 @@ namespace SearchlightScenarioHarness
         private static Building_Searchlight SpawnLamp(string defName, IntVec3 cell)
         {
             var lamp = (Building_Searchlight)GenSpawn.Spawn(DefDatabase<ThingDef>.GetNamed(defName), cell, Find.CurrentMap);
+            lamp.SetPolicy(AssignmentPolicy.Independent);
+            Check(lamp.Policy == AssignmentPolicy.Independent, defName + " uses Independent policy");
             lamp.GetComp<CompPowerTrader>().PowerOn = true;
             Check(lamp.IsOperating, defName + " powered at " + cell);
             lamps.Add(lamp);
