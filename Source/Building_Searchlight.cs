@@ -436,8 +436,8 @@ namespace DirectedSearchlights
                 yield return new Command_Action
                 {
                     defaultLabel = ("DS_Mode" + selected).Translate() + (mode == selected ? " ✓" : ""),
-                    icon = selected == SearchlightMode.Fixed ? TexCommand.HoldOpen :
-                        selected == SearchlightMode.Sweep ? TexCommand.SquadAttack : TexCommand.FireAtWill,
+                    icon = selected == SearchlightMode.Fixed ? SearchlightIcons.Fixed :
+                        selected == SearchlightMode.Sweep ? SearchlightIcons.Sweep : SearchlightIcons.Automatic,
                     action = () => SetMode(selected)
                 };
             }
@@ -445,7 +445,7 @@ namespace DirectedSearchlights
                 yield return new Command_Target
             {
                 defaultLabel = "DS_SelectTarget".Translate(),
-                icon = TexCommand.Attack,
+                icon = SearchlightIcons.SelectTarget,
                 targetingParams = new TargetingParameters
                 {
                     canTargetPawns = true,
@@ -460,13 +460,13 @@ namespace DirectedSearchlights
                 yield return new Command_Action
                 {
                     defaultLabel = "DS_ClearTarget".Translate(),
-                    icon = TexCommand.CannotShoot,
+                    icon = SearchlightIcons.ClearTarget,
                     action = () => SelectManualTarget(null)
                 };
             yield return new Command_Target
             {
                 defaultLabel = "DS_SetDirection".Translate(),
-                icon = TexCommand.HoldOpen,
+                icon = SearchlightIcons.SetDirection,
                 targetingParams = TargetingParameters.ForCell(),
                 action = target =>
                 {

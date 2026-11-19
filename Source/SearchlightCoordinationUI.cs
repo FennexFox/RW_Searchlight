@@ -33,9 +33,9 @@ namespace DirectedSearchlights
         private IEnumerable<Gizmo> CoordinationGizmos()
         {
             yield return CreateCoordinationCommand("DS_AssignmentPolicy", CoordinationOptions.PolicyKey,
-                TexButton.ShowZones, light => light.Policy, (light, choice) => light.SetPolicy(choice));
+                SearchlightIcons.TargetSharing, light => light.Policy, (light, choice) => light.SetPolicy(choice));
             yield return CreateCoordinationCommand("DS_DetectionAlerts", CoordinationOptions.AlertModeKey,
-                TexButton.Info, light => light.AlertMode, (light, choice) => light.SetAlertMode(choice));
+                SearchlightIcons.DetectionAlerts, light => light.AlertMode, (light, choice) => light.SetAlertMode(choice));
         }
 
         private Gizmo CreateCoordinationCommand<T>(string key, string optionKey, Texture2D icon,

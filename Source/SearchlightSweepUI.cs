@@ -16,7 +16,7 @@ namespace DirectedSearchlights
         {
             defaultLabel = "DS_AdjustSweep".Translate(),
             defaultDesc = "DS_AdjustSweepDesc".Translate(),
-            icon = TexCommand.SquadAttack,
+            icon = SearchlightIcons.AdjustSweep,
             action = () =>
             {
                 editor = new SweepEditor(this);
