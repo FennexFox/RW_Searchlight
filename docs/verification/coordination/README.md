@@ -7,7 +7,7 @@ ten-lamp vanilla runtime fixture.
 
 ## Builds and regression checks
 
-| Game | Packaged DLL SHA-256 |
+| Game | DLL SHA-256 from the coordination verification run |
 |---|---|
 | RimWorld 1.6.4871 | `F34284EB55412B3E1A758435F0FC082DF0D1A05830DC2110328C10082390BD53` |
 | RimWorld 1.7.5013 | `E2E41E8C9D4E53E3B44F5138F8AB341ACEF7E1657B61012D3D2392AD5EE5C74C` |

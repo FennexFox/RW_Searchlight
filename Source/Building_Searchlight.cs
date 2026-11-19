@@ -22,7 +22,8 @@ namespace DirectedSearchlights
         private const float SweepDegreesPerTick = 0.4f;
         internal const int AcquireInterval = 30;
         private const float TurnDegreesPerTick = 2f;
-        private const float RangeCellsPerTick = 0.6f;
+        // Effective height above the ground plane for the head's tilt axis.
+        private const float AimHeightCells = 2f;
 
         private SearchlightMode mode = SearchlightMode.Automatic;
         private AssignmentPolicy policy = AssignmentPolicy.Spread;
@@ -179,8 +180,17 @@ namespace DirectedSearchlights
             else { desiredHeading = fixedHeading; desiredRange = fixedRange; }
 
             aimHeading = Mathf.Repeat(Mathf.MoveTowardsAngle(aimHeading, desiredHeading, TurnDegreesPerTick), 360f);
-            aimRange = Mathf.MoveTowards(aimRange, desiredRange, RangeCellsPerTick);
+            aimRange = TiltTowardsRange(aimRange, desiredRange);
             RefreshBeamAndSpot();
+        }
+
+        private static float TiltTowardsRange(float current, float target)
+        {
+            if (current == target) return target;
+            float pitch = Mathf.Atan2(current, AimHeightCells);
+            float targetPitch = Mathf.Atan2(target, AimHeightCells);
+            float next = Mathf.MoveTowards(pitch, targetPitch, TurnDegreesPerTick * Mathf.Deg2Rad);
+            return next == targetPitch ? target : AimHeightCells * Mathf.Tan(next);
         }
 
         internal bool ScanDue(int tick)

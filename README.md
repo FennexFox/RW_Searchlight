@@ -33,8 +33,11 @@ range. In Sweep and Automatic modes, **Select target** gives a valid hostile
 pawn priority. The turret can acquire hostiles it can see. The tower can also
 detect unroofed hostiles behind cover and prefers visible targets under all
 three sharing policies. Walls and closed doors
-block both beams. When a target moves, the head turns and the endpoint travels
-to the new position.
+block both beams. When tracking a moving target, the head can pan and tilt by
+up to 2 degrees per tick on each axis. Tilt projects onto the ground from an
+effective pivot height of two cells, so a small tilt moves the beam farther
+at long range. With the head already facing the target, moving the aim from
+15 to 60 cells takes 3 ticks. Turning sideways through 90 degrees takes 45.
 
 In Sweep mode, choose **Adjust sweep sector** to open the map preview.
 
