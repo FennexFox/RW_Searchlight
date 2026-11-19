@@ -45,7 +45,12 @@ namespace DirectedSearchlights
         {
             if (light.Map != map || !light.CanDetect(pawn)) return;
 
+            FlushIfDue(tick);
             int id = pawn.thingIDNumber;
+            records.TryGetValue(id, out DetectionRecord existing);
+            // A manual acquisition can arrive after this map's tick. End the
+            // absence now, before another lamp samples the pawn on the next tick.
+            existing?.ObservePresence(tick, light);
             if (seedBaseline || (tick < baselineUntil && baselinePawns.Contains(id)))
             {
                 if (!records.ContainsKey(id)) records.Add(id, new DetectionRecord { Pawn = pawn });
@@ -54,19 +59,18 @@ namespace DirectedSearchlights
 
             if (light.AlertMode == DetectionAlertMode.Off) return;
 
-            FlushIfDue(tick);
             if (pending.TryGetValue(id, out PendingDetection detection))
             {
                 if (!detection.Lights.Contains(light)) detection.Lights.Add(light);
                 return;
             }
 
-            if (records.TryGetValue(id, out DetectionRecord existing) && !existing.Ready(tick)) return;
+            if (existing != null && !existing.Ready(tick)) return;
 
             if (pending.Count == 0) batchUntil = tick + BatchTicks;
             pending.Add(id, new PendingDetection(pawn.Position, light));
             // Persist a conservative cooldown if the transient batch is lost to a save and reload.
-            records[id] = new DetectionRecord { Pawn = pawn, LastAlert = batchUntil };
+            records[id] = new DetectionRecord { Pawn = pawn, LastAlert = batchUntil, Detector = light };
         }
 
         internal void Tick(int tick, IReadOnlyList<Building_Searchlight> lights)
@@ -86,11 +90,10 @@ namespace DirectedSearchlights
 
                 // Detectability follows every eligible lamp, including lights tracking another pawn.
                 bool markerActive = record.MarkerUntil > tick;
-                Presence presence = Detect(record.Pawn, lights, markerActive);
+                Presence presence = Detect(record, lights, markerActive);
                 if (presence != Presence.None)
                 {
-                    record.AbsenceSatisfied |= record.FinishedAbsence(tick);
-                    record.AbsentSince = -1;
+                    record.ObservePresence(tick, record.Detector);
                 }
                 else
                 {
@@ -112,7 +115,7 @@ namespace DirectedSearchlights
             foreach (DetectionRecord record in records.Values)
             {
                 if (record.MarkerUntil < 0) continue;
-                if (tick >= record.MarkerUntil || Detect(record.Pawn, lights, checkAlertMode: true) != Presence.Alerting)
+                if (tick >= record.MarkerUntil || Detect(record, lights, checkAlertMode: true) != Presence.Alerting)
                 {
                     record.MarkerUntil = -1;
                     continue;
@@ -124,15 +127,26 @@ namespace DirectedSearchlights
             }
         }
 
-        private Presence Detect(Pawn pawn, IReadOnlyList<Building_Searchlight> lights, bool checkAlertMode = false)
+        private Presence Detect(DetectionRecord record, IReadOnlyList<Building_Searchlight> lights, bool checkAlertMode = false)
         {
+            Pawn pawn = record.Pawn;
             if (pawn == null || !pawn.Spawned || pawn.Map != map) return Presence.None;
 
+            // Reuse the last detector as a hint, rechecking current eligibility
+            // even while the game is paused. Other lamps may cover the same cell.
+            var previous = record.Detector;
             Presence presence = Presence.None;
+            if (previous != null && previous.CanDetect(pawn))
+            {
+                presence = previous.AlertMode == DetectionAlertMode.Off ? Presence.Passive : Presence.Alerting;
+                if (!checkAlertMode || presence == Presence.Alerting) return presence;
+            }
+            else record.Detector = null;
             for (int i = 0; i < lights.Count; i++)
             {
                 Building_Searchlight light = lights[i];
-                if (!light.CanDetect(pawn)) continue;
+                if (light == previous || !light.CanDetect(pawn)) continue;
+                record.Detector = light;
                 presence = light.AlertMode == DetectionAlertMode.Off ? Presence.Passive : Presence.Alerting;
                 if (!checkAlertMode || presence == Presence.Alerting) break;
             }
@@ -149,8 +163,9 @@ namespace DirectedSearchlights
             {
                 int id = pawn.thingIDNumber;
                 baselinePawns.Add(id);
-                if (!records.ContainsKey(id) && Detect(pawn, lights) != Presence.None)
-                    records.Add(id, new DetectionRecord { Pawn = pawn });
+                if (records.ContainsKey(id)) continue;
+                var record = new DetectionRecord { Pawn = pawn };
+                if (Detect(record, lights) != Presence.None) records.Add(id, record);
             }
         }
 
@@ -271,12 +286,20 @@ namespace DirectedSearchlights
         private sealed class DetectionRecord : IExposable
         {
             public Pawn Pawn;
+            public Building_Searchlight Detector;
             public int LastAlert = -1;
             public int AbsentSince = -1;
             public bool AbsenceSatisfied;
             public int MarkerUntil = -1;
 
             public bool FinishedAbsence(int tick) => AbsentSince >= 0 && tick - AbsentSince >= AbsenceTicks;
+
+            public void ObservePresence(int tick, Building_Searchlight detector)
+            {
+                Detector = detector;
+                AbsenceSatisfied |= FinishedAbsence(tick);
+                AbsentSince = -1;
+            }
 
             public bool Ready(int tick) => (AbsenceSatisfied || FinishedAbsence(tick)) &&
                 (LastAlert < 0 || tick - LastAlert >= CooldownTicks);
