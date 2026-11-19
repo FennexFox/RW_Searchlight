@@ -9,9 +9,14 @@ namespace DirectedSearchlights
             (first, second) => first.thingIDNumber.CompareTo(second.thingIDNumber));
         private readonly List<Building_Searchlight> lights = new List<Building_Searchlight>();
         private readonly TargetCoordinator targets;
+        private readonly DetectionAlerts alerts;
         private bool restoring;
 
-        public SearchlightMap(Map map) : base(map) => targets = new TargetCoordinator(map);
+        public SearchlightMap(Map map) : base(map)
+        {
+            alerts = new DetectionAlerts(map);
+            targets = new TargetCoordinator(map, ReportAcquisition);
+        }
 
         internal int ReservationCount => targets.ReservationCount;
         internal int ReservationsFor(Pawn pawn) => targets.ReservationsFor(pawn);
@@ -35,10 +40,19 @@ namespace DirectedSearchlights
         public override void FinalizeInit()
         {
             if (!restoring) return;
-            restoring = false;
             int tick = Find.TickManager.TicksGame;
             foreach (Building_Searchlight light in lights) targets.Reconcile(light, tick);
+            alerts.Restored();
+            restoring = false;
         }
+
+        public override void ExposeData()
+        {
+            if (Scribe.mode == LoadSaveMode.LoadingVars) restoring = true;
+            alerts.ExposeData();
+        }
+
+        public override void MapComponentTick() => alerts.Tick(Find.TickManager.TicksGame, lights);
 
         // MapComponentTick runs after normal thing ticks. The first lamp starts
         // the batch so all due lamps have their assignment before they aim.
@@ -47,12 +61,18 @@ namespace DirectedSearchlights
         internal void ChangeLock(Building_Searchlight light, Pawn pawn, int tick) => targets.ChangeLock(light, pawn, tick);
         internal void ResetRedistribution(Building_Searchlight light) => targets.ResetRedistribution(light);
 
+        private void ReportAcquisition(Building_Searchlight light, Pawn pawn, int tick)
+        {
+            if (!restoring) alerts.Acquired(light, pawn, tick);
+        }
+
         public override void MapComponentDraw()
         {
             if (Find.CurrentMap != map) return;
             CellRect view = Find.CameraDriver.CurrentViewRect;
             foreach (Building_Searchlight light in lights)
                 if (light.BeamVisibleIn(view)) light.DrawBeam();
+            alerts.Draw(lights);
         }
 
         public override void MapRemoved()
@@ -64,6 +84,7 @@ namespace DirectedSearchlights
             }
             lights.Clear();
             targets.Clear();
+            alerts.Clear();
         }
     }
 }

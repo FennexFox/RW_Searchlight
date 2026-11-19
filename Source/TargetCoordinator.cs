@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Verse;
 
@@ -8,6 +9,7 @@ namespace DirectedSearchlights
         private const int MinimumHoldTicks = 120;
 
         private readonly Map map;
+        private readonly Action<Building_Searchlight, Pawn, int> acquired;
         private readonly Dictionary<Building_Searchlight, Pawn> reservations = new Dictionary<Building_Searchlight, Pawn>();
         private readonly Dictionary<Pawn, int> occupancy = new Dictionary<Pawn, int>();
         private readonly Dictionary<Building_Searchlight, (Pawn pawn, int tick)> alternatives =
@@ -16,7 +18,11 @@ namespace DirectedSearchlights
         private readonly List<Pawn> candidates = new List<Pawn>();
         private int lastBatchTick = -1;
 
-        public TargetCoordinator(Map map) => this.map = map;
+        public TargetCoordinator(Map map, Action<Building_Searchlight, Pawn, int> acquired)
+        {
+            this.map = map;
+            this.acquired = acquired;
+        }
 
         public int ReservationCount => reservations.Count;
         public int ReservationsFor(Pawn pawn) => pawn != null && occupancy.TryGetValue(pawn, out int count) ? count : 0;
@@ -87,6 +93,7 @@ namespace DirectedSearchlights
             {
                 reservations.Add(light, pawn);
                 occupancy[pawn] = ReservationsFor(pawn) + 1;
+                acquired(light, pawn, tick);
             }
         }
 
