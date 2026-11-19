@@ -185,36 +185,36 @@ namespace DirectedSearchlights
                 return;
             }
             if (lockedTarget != null) return;
-            Pawn best = null;
-            int bestDistance = int.MaxValue;
-            bool bestVisible = false;
+            TargetCandidate best = default;
             foreach (Pawn pawn in Map.mapPawns.AllPawnsSpawned)
             {
-                if (!ValidTarget(pawn)) continue;
-                int dx = pawn.Position.x - Position.x;
-                int dz = pawn.Position.z - Position.z;
-                int distance = dx * dx + dz * dz;
-                bool visible = !DetectThroughWalls || BeamField.Clear(Map, Position, pawn.Position);
-                if (best == null || (visible && !bestVisible) ||
-                    (visible == bestVisible && (distance < bestDistance ||
-                    (distance == bestDistance && pawn.thingIDNumber < best.thingIDNumber))))
-                {
-                    best = pawn;
-                    bestDistance = distance;
-                    bestVisible = visible;
-                }
+                if (!TryDescribeTarget(pawn, out TargetCandidate candidate)) continue;
+                if (best.Pawn == null || candidate.Precedes(best)) best = candidate;
             }
-            lockedTarget = best;
+            lockedTarget = best.Pawn;
         }
 
-        private bool ValidTarget(Pawn pawn)
+        private bool ValidTarget(Pawn pawn) => TargetEligible(pawn, out _);
+
+        internal bool TryDescribeTarget(Pawn pawn, out TargetCandidate candidate)
         {
+            candidate = default;
+            if (!TargetEligible(pawn, out int distanceSquared)) return false;
+            candidate = new TargetCandidate(pawn, distanceSquared,
+                !DetectThroughWalls || BeamField.Clear(Map, Position, pawn.Position));
+            return true;
+        }
+
+        private bool TargetEligible(Pawn pawn, out int distanceSquared)
+        {
+            distanceSquared = 0;
             if (pawn == null || pawn.Destroyed || !pawn.Spawned || pawn.Map != Map || pawn.Dead ||
                 pawn.Downed || pawn.IsPsychologicallyInvisible() || pawn.Fogged() ||
                 !pawn.HostileTo(Faction.OfPlayer)) return false;
             int dx = pawn.Position.x - Position.x;
             int dz = pawn.Position.z - Position.z;
-            if (dx * dx + dz * dz > BeamRange * BeamRange) return false;
+            distanceSquared = dx * dx + dz * dz;
+            if (distanceSquared > BeamRange * BeamRange) return false;
             if (!IsWithinSweepArc(pawn.Position)) return false;
             if (DetectThroughWalls)
                 return !pawn.Position.Roofed(Map);
@@ -409,6 +409,27 @@ namespace DirectedSearchlights
                     SetAimCell(target.Cell);
                 }
             };
+        }
+    }
+
+    internal readonly struct TargetCandidate
+    {
+        public readonly Pawn Pawn;
+        public readonly int DistanceSquared;
+        public readonly bool Direct;
+
+        public TargetCandidate(Pawn pawn, int distanceSquared, bool direct)
+        {
+            Pawn = pawn;
+            DistanceSquared = distanceSquared;
+            Direct = direct;
+        }
+
+        public bool Precedes(TargetCandidate other)
+        {
+            if (Direct != other.Direct) return Direct;
+            if (DistanceSquared != other.DistanceSquared) return DistanceSquared < other.DistanceSquared;
+            return Pawn.thingIDNumber < other.Pawn.thingIDNumber;
         }
     }
 
