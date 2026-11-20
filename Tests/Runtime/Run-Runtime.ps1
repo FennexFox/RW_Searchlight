@@ -7,6 +7,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $game = (Resolve-Path -LiteralPath $RimWorldDir).Path
+$mod = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+. (Join-Path $PSScriptRoot '../RunnerModStaging.ps1')
 $exe = Join-Path $game 'RimWorld.exe'
 if ((Test-Path -LiteralPath $exe -PathType Leaf) -and
     (Test-Path -LiteralPath (Join-Path $game 'Assembly-CSharp.dll') -PathType Leaf)) {
@@ -19,7 +21,7 @@ if ((Test-Path -LiteralPath $exe -PathType Leaf) -and
     }
     $gameVersion = '1.6'
 }
-$mod = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+$expectedMvid = Get-AssemblyMvid (Join-Path $mod "$gameVersion/Assemblies/DirectedSearchlights.dll")
 $harnessSource = Join-Path $PSScriptRoot 'HarnessMod'
 $variant = if ($UseVanillaWeather) { "$Case-vanillaweather" } else { $Case }
 $testPackage = "searchlight.runtimeharness.$($variant.Replace('-', '.'))"
@@ -55,8 +57,10 @@ $items = ($mods | ForEach-Object { '    <li>' + $_ + '</li>' }) -join "`r`n"
 $xml = "<?xml version=`"1.0`" encoding=`"utf-8`"?>`r`n<ModsConfigData>`r`n  <version>$gameVersion</version>`r`n  <activeMods>`r`n$items`r`n  </activeMods>`r`n</ModsConfigData>`r`n"
 [IO.File]::WriteAllText((Join-Path $config 'ModsConfig.xml'), $xml, [Text.UTF8Encoding]::new($false))
 $createdLink = $false
+$checkoutJunction = $null
 $proc = $null
 try {
+    $checkoutJunction = Add-SearchlightCheckoutToGame $game $mod "SearchlightRuntimeMod-$variant"
     if (Test-Path -LiteralPath $link) { throw "Refusing to replace existing path: $link" }
     New-Item -ItemType Junction -Path $link -Target $resolvedHarness | Out-Null
     $createdLink = $true
@@ -85,7 +89,11 @@ try {
     if (Test-Path $result) { Get-Content $result }
     if (Test-Path $log) { Write-Output "Log: $log" }
     if ($proc.ExitCode -ne 0) { throw "Game exited $($proc.ExitCode); profile $profile" }
-    if (-not (Test-Path $result) -or -not ((Get-Content $result -Tail 1) -match ' PASS;')) { throw "Harness did not report PASS; profile $profile" }
+    $resultText = if (Test-Path -LiteralPath $result) { Get-Content -LiteralPath $result -Raw } else { '' }
+    if ($resultText -notmatch ' PASS;' -or
+        $resultText -notmatch ('assemblyMvid=' + [regex]::Escape($expectedMvid) + '(?:\s|;)')) {
+        throw "Harness did not report PASS with this checkout's assembly; profile $profile"
+    }
 }
 finally {
     if ($proc -and -not $proc.HasExited) { $proc.Kill(); $proc.WaitForExit() }
@@ -94,4 +102,5 @@ finally {
         if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0 -or $item.Target -ne $resolvedHarness) { throw "Unexpected harness link target; left intact: $link" }
         [IO.Directory]::Delete($link, $false)
     }
+    Remove-SearchlightCheckoutJunction $checkoutJunction
 }

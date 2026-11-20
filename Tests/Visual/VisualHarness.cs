@@ -24,6 +24,8 @@ namespace SearchlightVisualHarness
         public CaptureCheck(Game game)
         {
             GenCommandLine.TryGetCommandLineArg("ds-visual-output", out output);
+            if (!string.IsNullOrEmpty(output))
+                Record("assemblyMvid=" + typeof(Building_Searchlight).Assembly.ManifestModule.ModuleVersionId.ToString("D"));
         }
 
         public override void GameComponentUpdate()
@@ -153,7 +155,9 @@ namespace SearchlightVisualHarness
                 var sentry = i == 1 ? lamp : (Building_Searchlight)GenSpawn.Spawn(lamp.def, position, map);
                 sentries[i] = sentry;
                 sentry.SetMode(SearchlightMode.Automatic);
-                var cell = origin + new IntVec3(18, 0, z);
+                var cell = i == 1
+                    ? origin + new IntVec3(18, 0, 0)
+                    : origin + new IntVec3(24, 0, (i - 1) * 12);
                 var pawn = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfAncientsHostile);
                 GenSpawn.Spawn(pawn, cell, map);
                 pawn.jobs.StartJob(JobMaker.MakeJob(JobDefOf.Wait), JobCondition.InterruptForced);

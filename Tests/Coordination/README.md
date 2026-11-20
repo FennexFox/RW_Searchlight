@@ -2,11 +2,13 @@
 
 Build the package for the installed game before running the fixture. The runner
 selects the RimWorld 1.6 or 1.7 references and executable using `Version.txt`.
-Use `-RimWorldPath` for an alternate installation that can load the package.
+For an alternate installation, use the same game directory for both commands.
+The checkout must be installed or linked in that game's Mods folder.
 
 ```powershell
-.\build.ps1
-.\Tests\Coordination\Run-Coordination.ps1
+$game = 'C:\Games\RimWorld'
+.\build.ps1 -RimWorldPath $game
+.\Tests\Coordination\Run-Coordination.ps1 -RimWorldPath $game
 ```
 
 The runner uses a fresh temporary save-data profile with Core, Directed
@@ -19,7 +21,9 @@ Spread, Independent, Concentrate, manual collisions, release and power changes,
 Sweep arc and 60-cell restrictions, and a second map. It verifies the actual
 in-game message and its selectable detection cells, counts emitted sounds, and
 asserts the alert batch, marker, absence, and restored cooldown boundaries in
-game ticks. It also checks that a current save restores the configured policies
+game ticks. A second pawn detected at the same cell while the first message is
+live must receive its own marker and opt-in sound while sharing the message.
+The fixture also checks that a current save restores the configured policies
 and manual target without replaying a detection or restoring its marker.
 
 The 1-, 10-, and 50-lamp scenarios check bounds on candidate snapshot builds and

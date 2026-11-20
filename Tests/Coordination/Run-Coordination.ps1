@@ -57,15 +57,17 @@ function Invoke-CoordinationGame([string]$Phase) {
         $arguments += ' -logFile "' + (Join-Path $profile "$Phase-Player.log") +
             '" -screen-fullscreen 0 -screen-width 1280 -screen-height 800'
     }
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     $process = Start-Process -FilePath $exe -ArgumentList $arguments -WorkingDirectory $game -WindowStyle Hidden `
         -PassThru -RedirectStandardOutput (Join-Path $profile "$Phase-console.log") `
         -RedirectStandardError (Join-Path $profile "$Phase-console-error.log")
     try {
         $null = $process.Handle
         if ($gameVersion -eq '1.7') {
-            & (Join-Path $PSScriptRoot '../Enable-TestRendering.ps1') -GameProcess $process
+            & (Join-Path $PSScriptRoot '../Enable-TestRendering.ps1') -GameProcess $process -Deadline $deadline
         }
-        $exited = $process.WaitForExit($TimeoutSeconds * 1000)
+        $remainingMs = [int][Math]::Max(0, ($deadline - [DateTime]::UtcNow).TotalMilliseconds)
+        $exited = $process.WaitForExit($remainingMs)
         if (Test-Path -LiteralPath $result) { Get-Content -LiteralPath $result }
         if (!$exited) { throw "Coordination phase $Phase timed out. Profile: $profile" }
         if ($process.ExitCode -ne 0 -or !(Test-Path -LiteralPath $result) -or

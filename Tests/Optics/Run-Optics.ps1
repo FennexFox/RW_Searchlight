@@ -4,6 +4,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $game = (Resolve-Path -LiteralPath $RimWorldDir).Path
+$mod = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+. (Join-Path $PSScriptRoot '../RunnerModStaging.ps1')
 $exe = Join-Path $game 'RimWorld.exe'
 if ((Test-Path -LiteralPath $exe -PathType Leaf) -and
     (Test-Path -LiteralPath (Join-Path $game 'Assembly-CSharp.dll') -PathType Leaf)) {
@@ -16,6 +18,7 @@ if ((Test-Path -LiteralPath $exe -PathType Leaf) -and
     }
     $gameVersion = '1.6'
 }
+$expectedMvid = Get-AssemblyMvid (Join-Path $mod "$gameVersion/Assemblies/DirectedSearchlights.dll")
 $profile = Join-Path $env:TEMP ('SearchlightOptics-' + [guid]::NewGuid().ToString('N'))
 $config = Join-Path $profile 'Config'
 $harness = Join-Path $profile 'HarnessMod'
@@ -32,8 +35,10 @@ $xml = "<?xml version=`"1.0`" encoding=`"utf-8`"?>`r`n<ModsConfigData>`r`n  <ver
 $link = Join-Path $game 'Mods/SearchlightOpticsHarness'
 $resolvedHarness = (Resolve-Path -LiteralPath $harness).Path
 $createdLink = $false
+$checkoutJunction = $null
 $proc = $null
 try {
+    $checkoutJunction = Add-SearchlightCheckoutToGame $game $mod 'SearchlightOpticsMod'
     if (Test-Path -LiteralPath $link) { throw "Refusing to replace existing path: $link" }
     New-Item -ItemType Junction -Path $link -Target $resolvedHarness | Out-Null
     $createdLink = $true
@@ -54,7 +59,11 @@ try {
     }
     Write-Output "Exit code: $($proc.ExitCode)"
     if (Test-Path -LiteralPath $result) { Get-Content -LiteralPath $result }
-    if ($proc.ExitCode -ne 0 -or !(Test-Path -LiteralPath $result) -or (Get-Content -LiteralPath $result -Tail 1) -notmatch ' PASS;') { throw "Optics game did not pass; profile $profile" }
+    $resultText = if (Test-Path -LiteralPath $result) { Get-Content -LiteralPath $result -Raw } else { '' }
+    if ($proc.ExitCode -ne 0 -or $resultText -notmatch ' PASS;' -or
+        $resultText -notmatch ('assemblyMvid=' + [regex]::Escape($expectedMvid) + '(?:\s|;)')) {
+        throw "Optics game did not pass with this checkout's assembly; profile $profile"
+    }
 }
 finally {
     if ($proc -and -not $proc.HasExited) { $proc.Kill(); $proc.WaitForExit() }
@@ -63,4 +72,5 @@ finally {
         if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0 -or $item.Target -ne $resolvedHarness) { throw "Unexpected junction target; left intact: $link" }
         [IO.Directory]::Delete($link, $false)
     }
+    Remove-SearchlightCheckoutJunction $checkoutJunction
 }

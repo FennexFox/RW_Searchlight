@@ -45,7 +45,8 @@ namespace SearchlightRuntimeHarness
             {
                 GenCommandLine.TryGetCommandLineArg("ds-result", out resultPath);
                 if (string.IsNullOrEmpty(resultPath)) resultPath = Path.Combine(GenFilePaths.SaveDataFolderPath, "runtime-results.txt");
-                Write("harness-created; game=" + game + "; args=" + Environment.CommandLine);
+                Write("harness-created; assemblyMvid=" + typeof(Building_Searchlight).Assembly.ManifestModule.ModuleVersionId.ToString("D") +
+                    "; game=" + game + "; args=" + Environment.CommandLine);
             }
         }
 

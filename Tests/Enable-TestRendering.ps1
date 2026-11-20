@@ -1,6 +1,9 @@
 # RimWorld 1.7 suspends its frame loop when its native window starts hidden.
 # Give only this test process a drawable surface outside the virtual desktop.
-param([Parameter(Mandatory)][System.Diagnostics.Process]$GameProcess)
+param(
+    [Parameter(Mandatory)][System.Diagnostics.Process]$GameProcess,
+    [DateTime]$Deadline = [DateTime]::MaxValue
+)
 
 if (-not ('SearchlightTests.RenderWindow' -as [type])) {
     Add-Type -TypeDefinition @'
@@ -38,12 +41,17 @@ namespace SearchlightTests {
 }
 '@
 }
-$deadline = [DateTime]::UtcNow.AddSeconds(30)
-while (!$GameProcess.HasExited -and [DateTime]::UtcNow -lt $deadline) {
+$pollUntil = [DateTime]::UtcNow.AddSeconds(30)
+if ($Deadline -lt $pollUntil) { $pollUntil = $Deadline }
+while (!$GameProcess.HasExited -and [DateTime]::UtcNow -lt $pollUntil) {
     if ([SearchlightTests.RenderWindow]::Show($GameProcess.Id, 1440)) {
-        Start-Sleep -Seconds 5
-        if (!$GameProcess.HasExited) { [void][SearchlightTests.RenderWindow]::Show($GameProcess.Id, 1442) }
+        $remaining = ($Deadline - [DateTime]::UtcNow).TotalMilliseconds
+        Start-Sleep -Milliseconds ([Math]::Max(0.0, [Math]::Min(5000.0, $remaining)))
+        if (!$GameProcess.HasExited -and [DateTime]::UtcNow -lt $Deadline) {
+            [void][SearchlightTests.RenderWindow]::Show($GameProcess.Id, 1442)
+        }
         break
     }
-    Start-Sleep -Milliseconds 250
+    $remaining = ($pollUntil - [DateTime]::UtcNow).TotalMilliseconds
+    Start-Sleep -Milliseconds ([Math]::Max(0.0, [Math]::Min(250.0, $remaining)))
 }
