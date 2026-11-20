@@ -1,41 +1,106 @@
 using System;
+using System.IO;
 using System.Linq;
 using DirectedSearchlights;
 using RimWorld;
+using UnityEngine;
 using Verse;
 
 namespace SearchlightScenarioHarness
 {
     public sealed partial class ScenarioCheck
     {
-        private enum NightOnlyPhase { DefaultDaytime, EnabledDaytime, Dusk, BeforeDawn, Dawn, PowerLoss }
+        private enum NightOnlyPhase
+        {
+            DefaultDaytime,
+            EnabledDaytime,
+            ReloadedDaytime,
+            Dusk,
+            BeforeDawn,
+            Dawn,
+            PowerLoss
+        }
 
         private const int NightOnlyStep = 15;
+        private const string NightOnlySave = "night-only";
         private static NightOnlyPhase nightOnlyPhase;
         private static IntVec3 nightOnlyAim;
         private static CompPowerTrader nightOnlyPower;
+        private static CompPowerTrader nightOnlyGeneratorPower;
+        private static Thing nightOnlyGenerator;
         private static float normalPowerOutput;
+        private static bool nightOnlySavePending;
+        private static int nightOnlyPowerReadyTick = -1;
 
         private static void BeginNightOnly()
         {
-            turret = SpawnLamp("DS_SearchlightTurret", origin);
+            Map map = Find.CurrentMap;
+            var lamp = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("DS_SearchlightTurret"));
+            lamp.SetFaction(Faction.OfPlayer);
+            turret = (Building_Searchlight)GenSpawn.Spawn(lamp, origin, map);
+            turret.SetPolicy(AssignmentPolicy.Independent);
+            turret.GetComp<CompFlickable>().SwitchIsOn = true;
+            lamps.Add(turret);
+
+            var generator = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("VanometricPowerCell"));
+            generator.SetFaction(Faction.OfPlayer);
+            nightOnlyGenerator = GenSpawn.Spawn(generator, origin + new IntVec3(-1, 0, 0), map);
             nightOnlyAim = origin + new IntVec3(12, 0, 0);
             turret.SetMode(SearchlightMode.Fixed);
             turret.SetAimCell(nightOnlyAim);
             nightOnlyPower = turret.GetComp<CompPowerTrader>();
+            nightOnlyGeneratorPower = nightOnlyGenerator.TryGetComp<CompPowerTrader>();
+            normalPowerOutput = -nightOnlyPower.Props.PowerConsumption;
+            nightOnlyPowerReadyTick = -1;
             SetNightOnlyPhase(NightOnlyPhase.DefaultDaytime, 17);
         }
 
-        private static void TickNightOnly()
+        public override void LoadedGame()
+        {
+            GenCommandLine.TryGetCommandLineArg("ds-scenario-phase", out string phase);
+            if (phase != "current") return;
+            try
+            {
+                Map map = Find.CurrentMap;
+                turret = map.listerThings.AllThings.OfType<Building_Searchlight>().Single();
+                nightOnlyGenerator = map.listerThings.AllThings.Single(t => t.def.defName == "VanometricPowerCell");
+                nightOnlyPower = turret.GetComp<CompPowerTrader>();
+                nightOnlyGeneratorPower = nightOnlyGenerator.TryGetComp<CompPowerTrader>();
+                normalPowerOutput = -nightOnlyPower.Props.PowerConsumption;
+                nightOnlyPowerReadyTick = -1;
+                nightOnlyAim = turret.Position + new IntVec3(12, 0, 0);
+                nightOnlyPhase = NightOnlyPhase.ReloadedDaytime;
+                Find.TickManager.CurTimeSpeed = TimeSpeed.Superfast;
+                Next(NightOnlyStep);
+                Write("night-only save loaded; hour=" + GenLocalDate.HourOfDay(map));
+            }
+            catch (Exception ex) { Fail("night-only load: " + ex); }
+        }
+
+        public override void GameComponentUpdate()
+        {
+            if (!nightOnlySavePending) return;
+            nightOnlySavePending = false;
+            try
+            {
+                GameDataSaveLoader.SaveGame(NightOnlySave);
+                Check(File.Exists(GenFilePaths.FilePathForSavedGame(NightOnlySave)), "night-only fixture save exists");
+                Write("night-only SAVE (enabled daytime standby on a live power network)");
+                Application.Quit(0);
+            }
+            catch (Exception ex) { Fail("night-only save: " + ex); }
+        }
+
+        private static void TickNightOnly(int age)
         {
             switch (nightOnlyPhase)
             {
                 case NightOnlyPhase.DefaultDaytime:
-                    var toggle = turret.GetGizmos().OfType<Command_Toggle>()
-                        .Single(g => g.defaultLabel == "DS_NightOnly".Translate());
+                    var toggle = NightOnlyToggle();
                     Check(!toggle.isActive(), "Night Only starts disabled");
-                    normalPowerOutput = nightOnlyPower.PowerOutput;
-                    Check(normalPowerOutput < 0f, "default operation consumes power during the day");
+                    if (!WaitForNetworkPower(age, "fresh fixture", true)) return;
+                    Check(nightOnlyPower.PowerOutput == normalPowerOutput,
+                        "default operation consumes the configured " + -normalPowerOutput + " W during the day");
                     CheckNightOnlyLight(true);
                     toggle.toggleAction();
                     Check(toggle.isActive(), "Night Only command enables the setting");
@@ -43,11 +108,22 @@ namespace SearchlightScenarioHarness
                     break;
                 case NightOnlyPhase.EnabledDaytime:
                     CheckDaytimeStandby();
+                    nightOnlySavePending = true;
+                    step = 99;
+                    break;
+                case NightOnlyPhase.ReloadedDaytime:
+                    Check(NightOnlyToggle().isActive(), "Night Only setting survives save/load");
+                    Check(GenLocalDate.HourOfDay(Find.CurrentMap) == 17, "save/load preserves the daytime fixture hour");
+                    if (!WaitForNetworkPower(age, "reloaded fixture", false)) return;
+                    CheckDaytimeStandby();
                     SetNightOnlyPhase(NightOnlyPhase.Dusk, 18);
                     break;
                 case NightOnlyPhase.Dusk:
+                    CheckPowerNetworkWired();
+                    Check(nightOnlyPower.PowerOn, "actual power network supplies the searchlight at dusk");
                     CheckNightOnlyLight(true);
-                    Check(nightOnlyPower.PowerOutput == normalPowerOutput, "normal power draw resumes at 18:00");
+                    Check(nightOnlyPower.PowerOutput == normalPowerOutput,
+                        "configured " + -normalPowerOutput + " W power draw resumes at 18:00");
                     SetNightOnlyPhase(NightOnlyPhase.BeforeDawn, 5);
                     break;
                 case NightOnlyPhase.BeforeDawn:
@@ -56,16 +132,49 @@ namespace SearchlightScenarioHarness
                     break;
                 case NightOnlyPhase.Dawn:
                     CheckDaytimeStandby();
-                    nightOnlyPower.PowerOn = false;
+                    nightOnlyGenerator.Destroy(DestroyMode.Vanish);
                     SetNightOnlyPhase(NightOnlyPhase.PowerLoss, 18);
                     break;
                 case NightOnlyPhase.PowerLoss:
-                    Check(!nightOnlyPower.PowerOn, "dusk does not restore lost power");
+                    Check(nightOnlyGenerator.Destroyed, "power source was removed from the fixture network");
+                    if (nightOnlyPower.PowerOn && age < 2400) return;
+                    Check(!nightOnlyPower.PowerOn, "dusk does not restore an unpowered network");
                     CheckNightOnlyLight(false);
-                    Write("night-only PASS (default off, standby at 06:00, resumes at 18:00, respects power loss)");
+                    Write("night-only PASS (live network, save/load standby, 06:00/18:00 transitions, source loss)");
                     Finish(true);
                     break;
             }
+        }
+
+        private static Command_Toggle NightOnlyToggle() => turret.GetGizmos().OfType<Command_Toggle>()
+            .Single(g => g.defaultLabel == "DS_NightOnly".Translate());
+
+        private static bool WaitForNetworkPower(int age, string context, bool waitForConfiguredSpot)
+        {
+            CheckPowerNetworkWired();
+            if (nightOnlyPower.PowerOn)
+            {
+                if (nightOnlyPowerReadyTick < 0)
+                {
+                    Check(age < 2400, context + " energizes through RimWorld's network within one local hour");
+                    nightOnlyPowerReadyTick = Find.TickManager.TicksGame;
+                    Write("night-only network ready; context=" + context + "; waitTicks=" + age +
+                        "; configuredWatts=" + -normalPowerOutput);
+                }
+                if (!waitForConfiguredSpot || turret.SpotCell == nightOnlyAim) return true;
+                Check(age < 2400, context + " reaches its configured spot within the same local hour");
+                return false;
+            }
+            Check(age < 2400, context + " energizes through RimWorld's network within one local hour");
+            return false;
+        }
+
+        private static void CheckPowerNetworkWired()
+        {
+            Check(nightOnlyGeneratorPower != null && nightOnlyGeneratorPower.PowerOutput > 0f,
+                "fixture generator is producing power");
+            Check(nightOnlyPower.PowerNet != null && nightOnlyPower.PowerNet == nightOnlyGeneratorPower.PowerNet,
+                "searchlight and generator share the actual power network");
         }
 
         private static void CheckDaytimeStandby()

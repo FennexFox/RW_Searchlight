@@ -37,7 +37,8 @@ namespace SearchlightScenarioHarness
             if (string.IsNullOrEmpty(resultPath))
                 resultPath = Path.Combine(GenFilePaths.SaveDataFolderPath, "scenario-results.txt");
             Write("created; game=" + VersionControl.CurrentVersionString +
-                "; assembly=" + typeof(Building_Searchlight).Assembly.GetName().Version);
+                "; assembly=" + typeof(Building_Searchlight).Assembly.GetName().Version +
+                "; assemblyMvid=" + typeof(Building_Searchlight).Assembly.ManifestModule.ModuleVersionId.ToString("D"));
         }
 
         public override void StartedNewGame()
@@ -72,7 +73,7 @@ namespace SearchlightScenarioHarness
                     case 12: if (age >= 180) TenLamps(); break;
                     case TrackingStep: TickTracking(age); break;
                     case SweepApiStep: if (age >= 1) TickSweepApi(age); break;
-                    case NightOnlyStep: if (age >= 90) TickNightOnly(); break;
+                    case NightOnlyStep: if (age >= 90) TickNightOnly(age); break;
                 }
             }
             catch (Exception ex) { Fail("step=" + step + "; " + ex); }

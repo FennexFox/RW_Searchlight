@@ -6,6 +6,7 @@ using DirectedSearchlights;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Verse.AI;
 
 namespace SearchlightScenarioHarness
 {
@@ -334,7 +335,7 @@ namespace SearchlightScenarioHarness
             Check(turret.LockedTarget == target, "target is locked before moving outside the configured arc");
             target.DeSpawn();
             GenSpawn.Spawn(target, origin + SweepOutsideTargetOffset, Find.CurrentMap);
-            target.pather.StopDead();
+            HoldSweepTarget();
             Check(target.Position == origin + SweepOutsideTargetOffset, "target moved outside the configured arc");
             // The lock is intentionally still present until the searchlight gets
             // its next Tick, so this distinguishes movement from tick validation.
@@ -352,7 +353,7 @@ namespace SearchlightScenarioHarness
 
             target.DeSpawn();
             GenSpawn.Spawn(target, origin + SweepInsideTargetOffset, Find.CurrentMap);
-            target.pather.StopDead();
+            HoldSweepTarget();
             turret.SelectManualTarget(target);
             Check(turret.LockedTarget == target, "target can be manually relocked after returning inside the arc");
             sweepApiPhase = SweepApiPhase.RotateLock;
@@ -376,6 +377,14 @@ namespace SearchlightScenarioHarness
                 if (!lamp.Destroyed) lamp.Destroy(DestroyMode.Vanish);
             lamps.Clear();
             BeginNightOnly();
+        }
+
+        private static void HoldSweepTarget()
+        {
+            Job hold = JobMaker.MakeJob(JobDefOf.Wait);
+            hold.expiryInterval = 10000;
+            target.jobs.StartJob(hold, JobCondition.InterruptForced);
+            target.pather.StopDead();
         }
 
         private static void ResetSweepSamples()

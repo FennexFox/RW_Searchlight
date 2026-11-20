@@ -31,6 +31,17 @@ target selection, and the runtime fixture uses spawned generators.
 
 ## Assignment and notification checks
 
+The PR review reruns on 1.6.4871 and 1.7.5014 passed with a second pawn
+detected at the same cell while the first message was still live. Both pawns
+shared the message, and the second detection produced its marker and requested
+sound. Both runs also passed the per-tick snapshot check for 1, 10 and 50 lamps.
+
+On both versions the scenario runner connected a 150 W turret to a vanometric
+power cell, saved during daytime standby and loaded the save in a new game
+process. The turret drew 0 W after reload, resumed its configured 150 W draw
+at 18:00 and returned to standby at 06:00. Removing the generator left the
+turret dark the following evening.
+
 Ten lights acquiring one pawn produced one message. Switching power off and
 on and reloading a current save preserved alert suppression. The fixtures
 checked the 60-tick message batch, 180-tick marker lifetime, 119/120-tick

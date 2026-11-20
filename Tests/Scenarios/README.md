@@ -6,6 +6,6 @@ The fixture sets each spawned searchlight to Independent and uses hostile pawns,
 
 The tracking checks sample aim range and angle on every tick as the beam extends from 15 to 60 cells and turns 90 degrees. They check both the endpoint glower's position and the target cell's ground glow. A single pawn walks through 58–61 cells using in-game movement, and the fixture checks the lamp resumes its configured sweep after losing the lock. Other checks cover lock retention, acquisition priority by visibility, distance, and ID, and manual targeting restrictions.
 
-The fixture controls `CompPowerTrader.PowerOn` directly to keep it independent of power-network layout. It verifies that a loss of power clears illumination with the switch still on, that restoring power restores illumination, and that destroying the powered lamp removes the glower and its ground light.
+Most fixture phases control `CompPowerTrader.PowerOn` directly. The performance check records wall time for 180 game ticks with zero and ten powered lamps on the same map.
 
-The final phase reports diagnostic wall time for 180 game ticks with zero and ten powered lamps in the same isolated game.
+The final Night Only phase connects the searchlight to a `VanometricPowerCell` and saves during daytime standby. A second game process loads the save and checks the persisted setting, the shared power network, the 18:00 and 06:00 power transitions, and loss of illumination after the generator is removed.
