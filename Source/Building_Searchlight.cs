@@ -44,6 +44,8 @@ namespace DirectedSearchlights
         private SearchlightMap searchlights;
         private CompPowerTrader power;
         private CompFlickable flick;
+        private bool nightOnly;
+        private bool daylightPowerSuspended;
         private int lastAcquireTick = -1;
         private int acquisitionCount;
         private static Graphic headGraphic;
@@ -58,7 +60,8 @@ namespace DirectedSearchlights
         public float SweepHeading => fixedHeading;
         public IntVec3 SpotCell => lightSpot != null && lightSpot.Spawned ? lightSpot.Position : IntVec3.Invalid;
         public bool IsOperating => Spawned && power != null && power.PowerOn &&
-            (flick == null || flick.SwitchIsOn) && (!RequiresOpenSky || !Position.Roofed(Map));
+            (flick == null || flick.SwitchIsOn) && !InDaytimeStandby && (!RequiresOpenSky || !Position.Roofed(Map));
+        private bool InDaytimeStandby => nightOnly && Spawned && GenLocalDate.HourOfDay(Map) is >= 6 and < 18;
         public int AcquisitionCount => acquisitionCount;
         public int LastAcquireTick => lastAcquireTick;
         internal int LockSinceTick => lockSinceTick;
@@ -80,6 +83,7 @@ namespace DirectedSearchlights
             base.SpawnSetup(map, respawningAfterLoad);
             power = GetComp<CompPowerTrader>();
             flick = GetComp<CompFlickable>();
+            UpdateScheduledPower();
             if (float.IsNaN(fixedHeading))
                 fixedHeading = Rotation.AsAngle;
             if (beam == null)
@@ -111,6 +115,7 @@ namespace DirectedSearchlights
             if (Scribe.mode == LoadSaveMode.Saving && !IsFinite(sweepHalfAngle))
                 sweepHalfAngle = DefaultSweepHalfAngle;
             Scribe_Values.Look(ref mode, "searchlightMode", SearchlightMode.Automatic);
+            Scribe_Values.Look(ref nightOnly, "searchlightNightOnly", false);
             Scribe_Values.Look(ref policy, "searchlightAssignmentPolicy", AssignmentPolicy.Independent);
             Scribe_Values.Look(ref alertMode, "searchlightAlertMode", DetectionAlertMode.Visual);
             Scribe_Values.Look(ref fixedHeading, "searchlightFixedHeading", float.NaN);
@@ -147,6 +152,7 @@ namespace DirectedSearchlights
         protected override void Tick()
         {
             base.Tick();
+            UpdateScheduledPower();
             int tick = Find.TickManager.TicksGame;
             searchlights.BeforeLightTick(tick);
             searchlights.Reconcile(this, tick);
@@ -425,9 +431,38 @@ namespace DirectedSearchlights
             sweepDirection = 1;
         }
 
+        private void UpdateScheduledPower()
+        {
+            if (power == null) return;
+            if (InDaytimeStandby)
+            {
+                power.PowerOutput = 0f;
+                daylightPowerSuspended = true;
+            }
+            else if (daylightPowerSuspended)
+            {
+                power.SetUpPowerVars();
+                daylightPowerSuspended = false;
+            }
+        }
+
         public override IEnumerable<Gizmo> GetGizmos()
         {
             foreach (Gizmo gizmo in base.GetGizmos()) yield return gizmo;
+            yield return new Command_Toggle
+            {
+                defaultLabel = "DS_NightOnly".Translate(),
+                defaultDesc = "DS_NightOnlyDesc".Translate(),
+                icon = TexCommand.DesirePower,
+                isActive = () => nightOnly,
+                toggleAction = () =>
+                {
+                    nightOnly = !nightOnly;
+                    UpdateScheduledPower();
+                    ReleaseInvalidTargets();
+                    RefreshBeamAndSpot();
+                }
+            };
             foreach (Gizmo gizmo in CoordinationGizmos()) yield return gizmo;
             if (mode == SearchlightMode.Sweep) yield return CreateSweepArcCommand();
             foreach (SearchlightMode choice in Enum.GetValues(typeof(SearchlightMode)))

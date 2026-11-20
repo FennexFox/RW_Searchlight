@@ -20,7 +20,9 @@ connect it to power:
 | Searchlight tower | 200 W | 75 steel, 1 industrial component |
 
 The turret operates under a roof. The tower stops operating if its cell becomes
-roofed.
+roofed. Enable **Night only** on either building to suspend its beam, detection,
+and power draw from 06:00 until 18:00 local time. Each light saves its own
+setting, which starts off so existing lights keep their schedule.
 
 | Mode | Behavior |
 |---|---|

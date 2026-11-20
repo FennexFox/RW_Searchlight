@@ -15,7 +15,7 @@
     <ManagedDir>$(RimWorldDir)/RimWorldWin64_Data/Managed</ManagedDir>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ScenarioHarness.cs;TrackingScenario.cs;SweepApiScenario.cs" />
+    <Compile Include="ScenarioHarness.cs;TrackingScenario.cs;SweepApiScenario.cs;NightOnlyScenario.cs" />
     <Reference Include="../../$(GameVersion)/Assemblies/DirectedSearchlights.dll" Private="false" />
   </ItemGroup>
   <ItemGroup Condition="'$(GameVersion)' == '1.6'">

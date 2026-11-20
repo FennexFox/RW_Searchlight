@@ -375,7 +375,7 @@ namespace SearchlightScenarioHarness
             foreach (Building_Searchlight lamp in lamps.ToList())
                 if (!lamp.Destroyed) lamp.Destroy(DestroyMode.Vanish);
             lamps.Clear();
-            Finish(true);
+            BeginNightOnly();
         }
 
         private static void ResetSweepSamples()

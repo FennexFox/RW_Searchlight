@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
+  <DS_NightOnly>야간에만 작동</DS_NightOnly>
+  <DS_NightOnlyDesc>현지 시각 오전 6시에 소등하고 전력 소비와 적 감지를 중지합니다. 오후 6시에 전원이 공급되고 스위치가 켜져 있으면 선택한 모드로 작동을 재개합니다.</DS_NightOnlyDesc>
   <DS_ModeFixed>고정</DS_ModeFixed>
   <DS_ModeSweep>회전 조사</DS_ModeSweep>
   <DS_ModeAutomatic>자동</DS_ModeAutomatic>

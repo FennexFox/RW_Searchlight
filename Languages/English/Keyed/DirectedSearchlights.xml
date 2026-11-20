@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
+  <DS_NightOnly>Night only</DS_NightOnly>
+  <DS_NightOnlyDesc>At 06:00 local time, turn off the beam and suspend power draw and detection. At 18:00, resume the selected mode if switched on and powered.</DS_NightOnlyDesc>
   <DS_ModeFixed>Fixed</DS_ModeFixed>
   <DS_ModeSweep>Sweep</DS_ModeSweep>
   <DS_ModeAutomatic>Automatic</DS_ModeAutomatic>
