@@ -53,6 +53,7 @@ namespace SearchlightCoordinationHarness
                     Require(lamps.Any(l => l.LockedTarget == original), "original target lock restored");
                     // Trigger genuine reacquisitions after the quiet load window.
                     foreach (var lamp in lamps) lamp.SelectManualTarget(null);
+                    Require(!lamps.Any(l => l.LockedTarget == original), "manual release clears every original target lock");
                 }
                 if (age == 160)
                 {

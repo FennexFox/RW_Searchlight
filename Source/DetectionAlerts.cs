@@ -202,11 +202,19 @@ namespace DirectedSearchlights
             string text = notifiedIds.Count == 1 ? "DS_DetectedHostile".Translate() : "DS_DetectedHostiles".Translate(notifiedIds.Count);
             var message = new Message(text, MessageTypeDefOf.SilentInput, targets);
             Messages.Message(message, historical: false);
-            if (!Messages.IsLive(message)) return;
+            bool addedMessage = Messages.IsLive(message);
 
             liveMessages.RemoveAll(existing => !Messages.IsLive(existing));
-            liveMessages.Add(message);
-            NotificationsSent++;
+            if (addedMessage)
+            {
+                liveMessages.Add(message);
+                NotificationsSent++;
+            }
+
+            // Messages coalesces a duplicate text/target pair into the existing
+            // live message. The UI event is not new in that case, but the
+            // pending pawn still needs the same alert effects as every other
+            // member of this batch.
             PawnsNotified += notifiedIds.Count;
             foreach (int id in notifiedIds)
             {

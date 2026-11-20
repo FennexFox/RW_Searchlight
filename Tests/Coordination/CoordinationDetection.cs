@@ -111,6 +111,27 @@ namespace SearchlightCoordinationHarness
                 {
                     ExpectAlerts(2, 2, 0, 1);
                     Write("ten-lamp deduplication, no repeat after power/continuous tracking, 60/180/119/120-tick boundaries passed");
+                    BeginCoalescedDetection(target);
+                });
+            });
+        }
+
+        private void BeginCoalescedDetection(Pawn previous)
+        {
+            Message priorMessage = LatestDetectionMessage(Network);
+            IntVec3 detectionCell = previous.Position;
+            previous.DeSpawn();
+            After(1, () =>
+            {
+                Pawn replacement = Hostile(0, 0, at: detectionCell);
+                lamps[0].SetAlertMode(DetectionAlertMode.VisualAndSound);
+                lamps[0].SelectManualTarget(replacement);
+                After(BatchWindow, () =>
+                {
+                    Require(Messages.IsLive(priorMessage) && ReferenceEquals(LatestDetectionMessage(Network), priorMessage),
+                        "same-cell alert coalesced into the existing live notification");
+                    ExpectAlerts(2, 3, 1, 1);
+                    Write("coalesced same-cell alert retained pawn count, marker, and opt-in sound");
                     BeginSoundBatch();
                 });
             });
@@ -133,13 +154,13 @@ namespace SearchlightCoordinationHarness
                 "a tower reserves a blocked detection without illuminating the pawn");
             After(BatchWindow - 1, () =>
             {
-                ExpectAlerts(2, 2, 0, 0);
+                ExpectAlerts(2, 3, 1, 0);
                 Require(second.AcquisitionCount == 0 && second.LockedTarget == null, "Fixed lamp did not detect eligible pawn");
                 second.SetMode(SearchlightMode.Automatic);
                 second.SelectManualTarget(direct);
                 After(1, () =>
                 {
-                    ExpectAlerts(3, 4, 1, 2);
+                    ExpectAlerts(3, 5, 2, 2);
                     Message notification = CheckMessage("DS_DetectedHostiles".Translate(2), initialBlockedCell, initialDirectCell);
                     blocked.Position = Cell(16, 0);
                     Require(notification.lookTargets.targets.Any(t => t.Cell == initialBlockedCell) &&
@@ -148,18 +169,39 @@ namespace SearchlightCoordinationHarness
                     After(1, () =>
                     {
                         Require(direct.Fogged() && Reserved(Network, direct) == 0, "fog immediately invalidates the reservation");
-                        ExpectAlerts(3, 4, 1, 1);
+                        ExpectAlerts(3, 5, 2, 1);
                         tower.SetAlertMode(DetectionAlertMode.Off);
                         second.SetAlertMode(DetectionAlertMode.Off);
                         After(1, () =>
                         {
-                            ExpectAlerts(3, 4, 1, 0);
+                            ExpectAlerts(3, 5, 2, 0);
                             home.fogGrid.Unfog(initialDirectCell);
                             Write("batch of two sends one real message with static cell targets and one opt-in sound; fog/Off clear markers");
-                            BeginSaveFixture();
+                            BeginConcentratePolicy();
                         });
                     });
                 });
+            });
+        }
+
+        private void BeginConcentratePolicy()
+        {
+            ClearFixtures();
+            Building_Searchlight reserved = Lamp(0, 0);
+            Building_Searchlight concentrate = Lamp(0, 8);
+            reserved.SetAlertMode(DetectionAlertMode.Off);
+            concentrate.SetAlertMode(DetectionAlertMode.Off);
+            concentrate.SetPolicy(AssignmentPolicy.Concentrate);
+            Pawn nearerReserved = Hostile(18, 8);
+            Pawn fartherFree = Hostile(28, 8);
+            reserved.SelectManualTarget(nearerReserved);
+            After(ScanInterval, () =>
+            {
+                Require(concentrate.LockedTarget == nearerReserved &&
+                    Reserved(Network, nearerReserved) == 2 && Reserved(Network, fartherFree) == 0,
+                    "Concentrate chooses the nearer pawn even when it already has a reservation");
+                Write("Concentrate preferred the nearer reserved pawn over a farther free pawn");
+                BeginSaveFixture();
             });
         }
 
@@ -182,7 +224,7 @@ namespace SearchlightCoordinationHarness
             After(BatchWindow, () =>
             {
                 Require(Reserved(Network, target) == 2 && other.LockedTarget == target, "Concentrate takes the best reachable pawn despite a manual reservation");
-                ExpectAlerts(4, 5, 2, 1);
+                ExpectAlerts(4, 6, 3, 1);
                 File.WriteAllText(Path.Combine(GenFilePaths.SaveDataFolderPath, SaveAlertTickFile), Now.ToString(CultureInfo.InvariantCulture));
                 Write("save fixture; alert tick=" + Now + "; pawn=" + target.thingIDNumber + "; reservations=" + Reserved(Network, target));
                 readyToSave = true;

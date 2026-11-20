@@ -85,6 +85,8 @@ namespace SearchlightCoordinationHarness
                     manual.SelectManualTarget(null);
                     Require(Read(manual, "manualTarget") == null && Reserved(Network, shared) == 0,
                         "releasing a manual order clears intent and frees its reservation");
+                    manual.SelectManualTarget(shared);
+                    Require(Reserved(Network, shared) == 1, "reacquiring a manual order restores its reservation");
                     shared.DeSpawn();
                     After(1, () =>
                     {
@@ -162,6 +164,11 @@ namespace SearchlightCoordinationHarness
             lamp.SetAlertMode(DetectionAlertMode.Off);
             Pawn smallId = Hostile(20, -3);
             Pawn bigId = Hostile(20, 3);
+            Building_Searchlight holder = Lamp(0, -8);
+            holder.SetAlertMode(DetectionAlertMode.Off);
+            holder.SelectManualTarget(smallId);
+            Require(Reserved(Network, smallId) == 1 && Reserved(Network, bigId) == 0,
+                "fixture reserves only the smaller-ID pawn before Independent scans");
             Pawn atLimit = Hostile(60, 0);
             Pawn outside = Hostile(61, 0);
             Require(smallId.thingIDNumber < bigId.thingIDNumber, "tie fixture spawns smaller pawn ID first");
@@ -201,9 +208,20 @@ namespace SearchlightCoordinationHarness
             int startEvaluations = Count(Network, "CandidateEvaluationCount");
             int startMessages = Alerts(Network, "NotificationsSent");
             var clock = Stopwatch.StartNew();
-            After(sampleTicks, () =>
+            int lastSnapshots = startSnapshots;
+            Action sampleTick = null;
+            sampleTick = () =>
             {
-                int snapshots = Count(Network, "CandidateSnapshotBuildCount") - startSnapshots;
+                int currentSnapshots = Count(Network, "CandidateSnapshotBuildCount");
+                Require(currentSnapshots - lastSnapshots <= 1, "at most one candidate snapshot builds per game tick");
+                lastSnapshots = currentSnapshots;
+                if (Now < startTick + sampleTicks)
+                {
+                    After(1, sampleTick);
+                    return;
+                }
+
+                int snapshots = currentSnapshots - startSnapshots;
                 int evaluations = Count(Network, "CandidateEvaluationCount") - startEvaluations;
                 Require(lamps.All(l => l.AcquisitionCount == sampleTicks / ScanInterval), "each lamp scans four times in 120 ticks");
                 Require(snapshots > 0 && snapshots <= Math.Min(sampleTicks, count * sampleTicks / ScanInterval),
@@ -225,7 +243,8 @@ namespace SearchlightCoordinationHarness
                     if (index + 1 < PerformanceCounts.Length) BeginPerformance(index + 1);
                     else BeginMapIsolation();
                 });
-            });
+            };
+            After(1, sampleTick);
         }
 
         private void BeginMapIsolation()
@@ -263,7 +282,11 @@ namespace SearchlightCoordinationHarness
                 Require(awayMessage.lookTargets.targets.Single().Map == away, "the away notification points to the away map");
                 Current.Game.CurrentMap = home;
                 Require(homeLamp.LockedTarget == homePawn && awayLamp.LockedTarget == awayPawn, "camera switch preserves both independent assignments");
-                ClearFixtures();
+                homeLamp.Destroy(DestroyMode.Vanish);
+                ParkPawn(homePawn);
+                lamps.Remove(homeLamp);
+                pawns.Remove(homePawn);
+                Require(Reserved(awayNetwork, awayPawn) == 1, "away reservation remains active until map removal");
                 MapParent parent = away.Parent;
                 Current.Game.DeinitAndRemoveMap(away, false);
                 if (!parent.Destroyed) parent.Destroy();
