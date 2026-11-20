@@ -23,7 +23,7 @@ namespace SearchlightOpticsHarness
             if (resultPath != null) return;
             GenCommandLine.TryGetCommandLineArg("ds-optics-result", out resultPath);
             if (string.IsNullOrEmpty(resultPath)) resultPath = Path.Combine(GenFilePaths.SaveDataFolderPath, "optics-results.txt");
-            Write("created");
+            Write("created; assemblyMvid=" + typeof(Building_Searchlight).Assembly.ManifestModule.ModuleVersionId.ToString("D"));
         }
 
         public override void StartedNewGame() { Find.TickManager.CurTimeSpeed = TimeSpeed.Superfast; }

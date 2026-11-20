@@ -5,6 +5,7 @@ using DirectedSearchlights;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Verse.AI;
 
 namespace SearchlightVisualHarness
 {
@@ -16,15 +17,20 @@ namespace SearchlightVisualHarness
         private int stage;
         private int frameToCapture;
         private string screenshotPath;
+        private Building_Searchlight[] sentries;
+        private Pawn[] hostiles;
+        private int raidTick;
 
         public CaptureCheck(Game game)
         {
             GenCommandLine.TryGetCommandLineArg("ds-visual-output", out output);
+            if (!string.IsNullOrEmpty(output))
+                Record("assemblyMvid=" + typeof(Building_Searchlight).Assembly.ManifestModule.ModuleVersionId.ToString("D"));
         }
 
         public override void GameComponentUpdate()
         {
-            if (output == null || stage == 4 || Find.CurrentMap == null) return;
+            if (output == null || stage == 5 || Find.CurrentMap == null) return;
             try
             {
                 if (lamp == null)
@@ -34,6 +40,9 @@ namespace SearchlightVisualHarness
                 }
 
                 lamp.GetComp<CompPowerTrader>().PowerOn = true;
+                if (sentries != null)
+                    foreach (var sentry in sentries)
+                        sentry.GetComp<CompPowerTrader>().PowerOn = true;
                 if (screenshotPath != null)
                 {
                     if (Time.frameCount == frameToCapture)
@@ -44,6 +53,18 @@ namespace SearchlightVisualHarness
                 }
 
                 var map = Find.CurrentMap;
+                if (stage == 4)
+                {
+                    if (Find.TickManager.TicksGame - raidTick >= 100)
+                    {
+                        var locks = sentries.Select(s => s.LockedTarget).ToArray();
+                        if (locks.Any(p => !hostiles.Contains(p)) || locks.Distinct().Count() != hostiles.Length)
+                            throw new InvalidOperationException("Expected three separate hostile locks.");
+                        Record("Spread target IDs: " + string.Join(", ", locks.Select(p => p.thingIDNumber)));
+                        Frame("coordination.png", 9, 13f);
+                    }
+                    return;
+                }
                 int range = stage == 0 ? 18 : 60;
                 if (GenLocalDate.HourOfDay(map) != 1 || map.skyManager.CurSkyGlow > 0.15f ||
                     !lamp.IsOperating || !lamp.SpotCell.IsValid || Math.Abs(lamp.AimRange - range) > 0.01f)
@@ -107,7 +128,7 @@ namespace SearchlightVisualHarness
         {
             screenshotPath = null;
             stage++;
-            if (stage == 4)
+            if (stage == 5)
             {
                 Exit("PASS");
                 return;
@@ -118,7 +139,32 @@ namespace SearchlightVisualHarness
                 for (int z = -2; z <= 2; z++)
                     GenSpawn.Spawn(ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.Steel),
                         origin + new IntVec3(30, 0, z), Find.CurrentMap);
+            if (stage == 4) SetUpDetectionScene();
             Find.TickManager.CurTimeSpeed = TimeSpeed.Superfast;
+        }
+
+        private void SetUpDetectionScene()
+        {
+            var map = Find.CurrentMap;
+            sentries = new Building_Searchlight[3];
+            hostiles = new Pawn[3];
+            for (int i = 0; i < 3; i++)
+            {
+                int z = (i - 1) * 6;
+                var position = origin + new IntVec3(0, 0, z);
+                var sentry = i == 1 ? lamp : (Building_Searchlight)GenSpawn.Spawn(lamp.def, position, map);
+                sentries[i] = sentry;
+                sentry.SetMode(SearchlightMode.Automatic);
+                var cell = i == 1
+                    ? origin + new IntVec3(18, 0, 0)
+                    : origin + new IntVec3(24, 0, (i - 1) * 12);
+                var pawn = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfAncientsHostile);
+                GenSpawn.Spawn(pawn, cell, map);
+                pawn.jobs.StartJob(JobMaker.MakeJob(JobDefOf.Wait), JobCondition.InterruptForced);
+                hostiles[i] = pawn;
+            }
+            raidTick = Find.TickManager.TicksGame;
+            Find.UIRoot.screenshotMode.Active = false;
         }
 
         private void Record(string line)
@@ -129,7 +175,7 @@ namespace SearchlightVisualHarness
 
         private void Exit(string result)
         {
-            stage = 4;
+            stage = 5;
             Record(result);
             Application.Quit();
         }

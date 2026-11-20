@@ -126,7 +126,9 @@ rollback/load. Avoid persisting UI objects or copying independent target ownersh
 
 ## Progress
 
-Plan written; implementation and tests have not started.
+The target eligibility extraction, map coordinator and alert delivery are
+implemented. The version-aware coordination runner checks real locks, native
+message delivery, opt-in sound dispatch, markers and save migration.
 
 ## Decision log
 
@@ -134,7 +136,13 @@ Use map-wide sharing rather than introducing configurable lamp groups in the
 first release. Default migration preserves old-save behavior. Timer values are
 playtest starting points; changes require updating tests and release notes.
 
+Existing lamps migrate to Independent with visual alerts. Absence measures
+whether any operating Sweep or Automatic lamp can detect the pawn, including
+lamps with alerts off or a different lock. A completed absence is remembered
+through cooldown. Confirmation scans for a free alternative may accrue during
+the 120-tick lock hold.
+
 ## Outcomes / Retrospective
 
-Pending implementation. Retain final measured notification frequency, assignment
-latency and scan costs here; do not mark complete based on compilation alone.
+See the [coordination verification record](../../verification/coordination/README.md)
+for the version-specific results, timing observations and limitations.

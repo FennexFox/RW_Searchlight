@@ -11,7 +11,7 @@ namespace SearchlightScenarioHarness
     {
         private enum TrackingPhase
         {
-            FixedAtFifteen, ExtendToSixty, FixedNorth, RotateToTarget, FollowPawn,
+            FixedAtFifteen, ExtendToSixty, RetractToFifteen, FixedNorth, RotateToTarget, FollowPawn,
             ResumeSweep, AcquireOccluded, RetainLock, RankCandidates, ManualLock,
             LosePower, RestorePower, DestroyLamp
         }
@@ -20,6 +20,7 @@ namespace SearchlightScenarioHarness
         private static readonly int[] PawnWalk = { 59, 58, 59, 60, 61 };
         private static TrackingPhase trackingPhase;
         private static float previousRange;
+        private static int rangeSteps;
         private static float previousHeading;
         private static int darkSamples;
         private static int walkStep;
@@ -56,10 +57,19 @@ namespace SearchlightScenarioHarness
                     Check(turret.LockedTarget == null, "fixed mode rejects manual targeting");
                     turret.SetMode(SearchlightMode.Automatic);
                     previousRange = turret.AimRange;
+                    rangeSteps = 0;
                     NextTracking(TrackingPhase.ExtendToSixty);
                     break;
                 case TrackingPhase.ExtendToSixty:
                     ExtendToSixty();
+                    break;
+                case TrackingPhase.RetractToFifteen:
+                    CheckTiltStep(15f);
+                    if (turret.AimRange != 15f) break;
+                    Check(rangeSteps == 3 && turret.SpotCell == East(15), "inward tilt reaches the exact aim cell in three ticks");
+                    Write("inward-tilt PASS; from=60; to=15; movingTicks=" + rangeSteps);
+                    turret.SetAimCell(origin + new IntVec3(0, 0, 60));
+                    NextTracking(TrackingPhase.FixedNorth);
                     break;
                 case TrackingPhase.FixedNorth:
                     if (age >= 90) BeginRotation();
@@ -122,9 +132,7 @@ namespace SearchlightScenarioHarness
 
         private static void ExtendToSixty()
         {
-            Check(turret.AimRange >= previousRange - 0.001f && turret.AimRange <= previousRange + 0.601f,
-                "live tracking extends range gradually each tick (" + previousRange + " -> " + turret.AimRange + ")");
-            previousRange = turret.AimRange;
+            CheckTiltStep(60f);
             if (turret.LockedTarget == null) return;
             Check(turret.LockedTarget == target, "automatic mode acquires the 60-cell pawn");
             if (turret.AimRange <= 56f)
@@ -134,12 +142,29 @@ namespace SearchlightScenarioHarness
                 darkSamples++;
             }
             if (turret.AimRange < 59.99f) return;
-            Check(darkSamples >= 40, "range extension includes many intermediate dark ticks");
+            Check(rangeSteps == 3 && darkSamples >= 1, "outward tilt takes three moving ticks and keeps an unreached pawn dark");
+            // Automatic patrol may turn away before its staggered acquisition scan.
+            // At full range the head can still be panning back toward the pawn.
+            if (Mathf.Abs(Mathf.DeltaAngle(turret.AimHeading, 90f)) > 0.01f) return;
             if (!TargetLit("range settled at 60")) return;
-            Write("smooth-range PASS; from=15; to=60; intermediateDarkTicks=" + darkSamples);
+            Write("outward-tilt PASS; from=15; to=60; movingTicks=" + rangeSteps + "; intermediateDarkTicks=" + darkSamples);
             turret.SetMode(SearchlightMode.Fixed);
-            turret.SetAimCell(origin + new IntVec3(0, 0, 60));
-            NextTracking(TrackingPhase.FixedNorth);
+            turret.SetAimCell(East(15));
+            rangeSteps = 0;
+            NextTracking(TrackingPhase.RetractToFifteen);
+        }
+
+        private static void CheckTiltStep(float targetRange)
+        {
+            float range = turret.AimRange;
+            if (range == previousRange) return;
+            float previous = Mathf.Atan2(previousRange, 2f) * Mathf.Rad2Deg;
+            float current = Mathf.Atan2(range, 2f) * Mathf.Rad2Deg;
+            float target = Mathf.Atan2(targetRange, 2f) * Mathf.Rad2Deg;
+            Check(Mathf.Abs(current - Mathf.MoveTowards(previous, target, 2f)) <= 0.001f,
+                "each moving tick tilts two degrees or settles at the target pitch");
+            previousRange = range;
+            rangeSteps++;
         }
 
         private static void BeginRotation()

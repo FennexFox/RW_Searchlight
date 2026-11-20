@@ -5,9 +5,7 @@ and 1.7. Turrets and towers can track hostile pawns up to 60 cells away. At the
 default beam diameter, a target 60 cells away is illuminated by a beam about
 3.8 degrees wide (four cells across at the target).
 
-English is the default language for project documentation. In-game translations
-remain in the localized files under `Languages/` and the version-specific
-`DefInjected` folders.
+The mod includes English and Korean in-game text.
 
 ## Installation and controls
 
@@ -22,7 +20,9 @@ connect it to power:
 | Searchlight tower | 200 W | 75 steel, 1 industrial component |
 
 The turret operates under a roof. The tower stops operating if its cell becomes
-roofed.
+roofed. Enable **Night only** on either building to suspend its beam, detection,
+and power draw from 06:00 until 18:00 local time. Each light saves its own
+setting, which starts off so existing lights keep their schedule.
 
 | Mode | Behavior |
 |---|---|
@@ -31,26 +31,58 @@ roofed.
 | Automatic | Patrols through 360 degrees and tracks valid hostile pawns. |
 
 Select a building and designate an aim cell to set its direction and patrol
-range. In Sweep and Automatic modes, you can also designate a pawn manually.
-The tower can detect outdoor enemies through walls, but the beam itself is
-occluded by walls and closed doors, just like the turret's beam.
+range. In Sweep and Automatic modes, **Select target** gives a valid hostile
+pawn priority. The turret can acquire hostiles it can see. The tower can also
+detect unroofed hostiles behind cover and prefers visible targets under all
+three sharing policies. Walls and closed doors
+block both beams. When tracking a moving target, the head can pan and tilt by
+up to 2 degrees per tick on each axis. Tilt projects onto the ground from an
+effective pivot height of two cells, so a small tilt moves the beam farther
+at long range. With the head already facing the target, moving the aim from
+15 to 60 cells takes 3 ticks. Turning sideways through 90 degrees takes 45.
 
-In Sweep mode, **Adjust sweep sector** opens a map preview with controls similar
-to Combat Extended's firing-arc editor: move the mouse to set the center
-direction, middle-click to adjust the width, then move toward the searchlight
-to narrow the sector or away to widen it. Middle-click again to lock the width,
-left-click to apply, or right-click/Escape to cancel. Hold Ctrl to highlight
-the outline of visible map cells within the sector and 60-cell reach that the
-beam can illuminate without crossing walls or closed doors. The displayed angle is the
-full sector width, not the beam width. Editing the sector preserves the patrol
-range set by the aim cell. Each building saves its own sector; existing saves
-retain the original 90-degree width. Selected sweep lights show their sector
-outline on the map.
+In Sweep mode, choose **Adjust sweep sector** to open the map preview.
 
-The editor uses the actual CE mouse conventions (its bundled tooltip reverses
-the confirm/cancel buttons). It does not require CE: CE's `CompFireArc` combines
-editing and gun-specific line-of-sight rendering in one override, with no hook
-to substitute the searchlight's beam obstruction rules.
+1. Move the mouse to aim the center of the sector.
+2. Middle-click to adjust the full sweep angle. Move toward the light to narrow
+   the sector or away to widen it. Middle-click again to lock the angle.
+3. Hold Ctrl to preview which cells the beam can reach within the sector, up
+   to 60 cells away. Left-click to apply, or right-click or press Escape to cancel.
+
+Each light saves its own sector and shows the outline when selected. Editing
+the sector preserves the patrol range set with **Set direction**. Lights from
+saves created before the sector editor start with the original 90-degree width.
+
+### Sharing targets and reporting hostiles
+
+In Sweep and Automatic modes, the **Target sharing** setting controls how a
+light chooses among eligible hostiles on its map.
+
+| Policy | When the light needs a target |
+|---|---|
+| Spread | Prefer the least-reserved target it can see. A light sharing a lock can move to a free, visible target after holding its lock for at least 120 ticks and finding the same alternative on two consecutive scans. |
+| Independent | Use the original target selection and keep a valid lock. |
+| Concentrate | Choose the best eligible target regardless of other lights' reservations. Several lights can choose the same pawn. |
+
+New lights start in Spread. Lights already in a pre-coordination save start
+in Independent. A manual target takes priority in all three policies. Several
+lights can be assigned to the same pawn by hand.
+
+**Detection alerts** offers Off, Visual, or Visual + sound. Visual is the
+default. You can change the default for newly built lights in Mod Settings.
+Detections on the same map within 60 ticks share a message. Click it to visit
+the original detection cell. A brief marker identifies hostiles that a light
+can still detect, including unroofed targets a tower detects behind a wall.
+The beam still has to reach a pawn to illuminate it.
+
+A repeat alert requires a fresh acquisition, at least 2,500 ticks since the
+previous notification, and a period of 120 consecutive ticks outside every
+operating detector's coverage. Switching targets while an enemy remains
+detectable does not rearm the alert. Lights with alerts turned off still
+contribute to detection coverage.
+
+The sweep editor is included in both the RimWorld 1.6 and 1.7 packages.
+Combat Extended is optional.
 
 ## Beam and illumination
 
@@ -91,12 +123,6 @@ not a lux simulation. Auto-zoom preserves the same attenuation for equal
 target widths at different ranges. This effect does not alter the endpoint
 light or CE calculations.
 
-The bundled 1.6 DLL is rebuilt from current source. The 1.7 DLL retains the
-earlier rounded-cap build and does not include the latest spread attenuation
-or saved-heading fallback, and does not include the adjustable sweep sector.
-Rebuild it with a 1.7 installation before releasing
-those source changes for 1.7.
-
 ## Build
 
 On Windows, install the .NET SDK and, for RimWorld 1.6, the .NET Framework
@@ -113,8 +139,8 @@ Run from PowerShell in this mod folder:
 
 The script detects the installed game version and writes
 `1.6/Assemblies/DirectedSearchlights.dll` or
-`1.7/Assemblies/DirectedSearchlights.dll`. RimWorld 1.7.5011 is built from the
-same C# source using the game's .NET 10 compatibility assemblies. During a
+`1.7/Assemblies/DirectedSearchlights.dll`. Both targets build from the same
+C# source. The 1.7 target uses the game's compatibility assemblies. During a
 1.7 build, `1.7/Defs` is copied from `1.6/Defs`; make Def changes in the 1.6
 folder. Game assemblies are build references and are not distributed with the
 mod.
@@ -135,8 +161,18 @@ and
 
 ## Verification
 
-See the [verification record](docs/verification/README.md) for the tested game
-versions, scenarios, measurements, and reproduction commands. A night-tracking
-scene is shown below.
+The [coordination verification record](docs/verification/coordination/README.md)
+includes the shared-target night scene, migration checks and reproduction
+commands. Earlier lighting and compatibility results are in the
+[MVP verification record](docs/verification/README.md).
 
-![Two searchlights tracking pawns at night](docs/verification/night-tracking.jpg)
+Both screenshots were captured at night in RimWorld 1.7.5013. Each turret is
+in Fixed mode, aimed 18 cells away with the default
+four-cell beam diameter.
+
+![A turret projects a widening beam to an illuminated spot 18 cells away at night](docs/verification/fixed-beam-1.7.5013.png)
+
+In the second scene, a wall clips the upper edge of the beam. The lower part
+passes the corner, and the illuminated endpoint still measures 0.5 ground glow.
+
+![The beam's upper edge stops at a steel wall while the lower part continues past the corner to the aim point](docs/verification/partial-wall-1.7.5013.png)
