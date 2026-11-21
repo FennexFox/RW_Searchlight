@@ -120,8 +120,8 @@ No modification of the user's normal save/config during testing.
 - Track a pawn walking diagonally. Sample while it is between tile centers and
   check that the rendered beam and illuminated cell centers follow the same
   fractional aim pose through the tile transition.
-- With Activate on detection enabled, remove the last detected enemy. Repeat
-  with Night only enabled across local sunrise in Atmosphere Overhaul while the
+- In Activate on detection mode, remove the last detected enemy. Switch to
+  Night only and test across local sunrise in Atmosphere Overhaul while an
   enemy remains in range. On the next update each lamp must draw zero power
   and withdraw its contribution from every previously lit cell. Compare with
   the lamp-off baseline using artificial ground glow so daylight cannot mask

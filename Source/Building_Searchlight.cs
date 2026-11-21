@@ -45,8 +45,8 @@ namespace DirectedSearchlights
         private SearchlightMap searchlights;
         private CompPowerTrader power;
         private CompFlickable flick;
-        private bool nightOnly;
-        private bool enemyOnly;
+        private enum PowerMode { AlwaysOn, NightOnly, EnemyOnly }
+        private PowerMode powerMode;
         private bool powerSuspended;
         private int lastAcquireTick = -1;
         private int acquisitionCount;
@@ -64,13 +64,13 @@ namespace DirectedSearchlights
         public bool IsOperating => CanScan && !InEnemyStandby;
         private bool CanScan => Spawned && power != null && power.PowerOn &&
             (flick == null || flick.SwitchIsOn) && !InDaytimeStandby && (!RequiresOpenSky || !Position.Roofed(Map));
-        private bool InEnemyStandby => enemyOnly && (mode == SearchlightMode.Fixed ? fixedEnemy : lockedTarget) == null;
-        private bool InDaytimeStandby => nightOnly && Spawned && searchlights.IsDaylight;
+        private bool InEnemyStandby => powerMode == PowerMode.EnemyOnly && (mode == SearchlightMode.Fixed ? fixedEnemy : lockedTarget) == null;
+        private bool InDaytimeStandby => powerMode == PowerMode.NightOnly && Spawned && searchlights.IsDaylight;
         public int AcquisitionCount => acquisitionCount;
         public int LastAcquireTick => lastAcquireTick;
         internal int LockSinceTick => lockSinceTick;
         internal bool HasManualTarget => manualTarget != null;
-        internal bool UsesFixedDetection => mode == SearchlightMode.Fixed && enemyOnly;
+        internal bool UsesFixedDetection => mode == SearchlightMode.Fixed && powerMode == PowerMode.EnemyOnly;
         internal bool HasFixedEnemy => fixedEnemy != null;
 
         protected virtual bool DetectThroughWalls => false;
@@ -122,8 +122,17 @@ namespace DirectedSearchlights
             if (Scribe.mode == LoadSaveMode.Saving && !IsFinite(sweepHalfAngle))
                 sweepHalfAngle = DefaultSweepHalfAngle;
             Scribe_Values.Look(ref mode, "searchlightMode", SearchlightMode.Automatic);
-            Scribe_Values.Look(ref nightOnly, "searchlightNightOnly", false);
-            Scribe_Values.Look(ref enemyOnly, "searchlightEnemyOnly", false);
+            PowerMode defaultPowerMode = PowerMode.AlwaysOn;
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                bool nightOnly = false, enemyOnly = false;
+                Scribe_Values.Look(ref nightOnly, "searchlightNightOnly");
+                Scribe_Values.Look(ref enemyOnly, "searchlightEnemyOnly");
+                // Preserve the enemy trigger when an older save enabled both restrictions.
+                if (enemyOnly) defaultPowerMode = PowerMode.EnemyOnly;
+                else if (nightOnly) defaultPowerMode = PowerMode.NightOnly;
+            }
+            Scribe_Values.Look(ref powerMode, "searchlightPowerMode", defaultPowerMode);
             Scribe_Values.Look(ref policy, "searchlightAssignmentPolicy", AssignmentPolicy.Independent);
             Scribe_Values.Look(ref alertMode, "searchlightAlertMode", DetectionAlertMode.Visual);
             Scribe_Values.Look(ref fixedHeading, "searchlightFixedHeading", float.NaN);
@@ -139,6 +148,7 @@ namespace DirectedSearchlights
             Scribe_Values.Look(ref lockSinceTick, "searchlightLockSinceTick", -1);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
+                if (!Enum.IsDefined(typeof(PowerMode), powerMode)) powerMode = PowerMode.AlwaysOn;
                 if (!Enum.IsDefined(typeof(SearchlightMode), mode)) mode = SearchlightMode.Automatic;
                 if (!Enum.IsDefined(typeof(AssignmentPolicy), policy)) policy = AssignmentPolicy.Independent;
                 if (!Enum.IsDefined(typeof(DetectionAlertMode), alertMode)) alertMode = DetectionAlertMode.Visual;
@@ -473,29 +483,20 @@ namespace DirectedSearchlights
         public override IEnumerable<Gizmo> GetGizmos()
         {
             foreach (Gizmo gizmo in base.GetGizmos()) yield return gizmo;
-            yield return new Command_Toggle
+            string powerModeKey = "DS_" + powerMode;
+            yield return new Command_Action
             {
-                defaultLabel = "DS_NightOnly".Translate(),
-                defaultDesc = "DS_NightOnlyDesc".Translate(),
+                defaultLabel = "DS_PowerMode".Translate(powerModeKey.Translate()),
+                defaultDesc = "DS_PowerModeDesc".Translate() + "\n\n" + (powerModeKey + "Desc").Translate(),
                 icon = TexCommand.DesirePower,
-                isActive = () => nightOnly,
-                toggleAction = () =>
+                action = () =>
                 {
-                    nightOnly = !nightOnly;
-                    ReleaseInvalidTargets();
-                    UpdateScheduledPower();
-                    RefreshBeamAndSpot();
-                }
-            };
-            yield return new Command_Toggle
-            {
-                defaultLabel = "DS_EnemyOnly".Translate(),
-                defaultDesc = "DS_EnemyOnlyDesc".Translate(),
-                icon = SearchlightIcons.DetectionAlerts,
-                isActive = () => enemyOnly,
-                toggleAction = () =>
-                {
-                    enemyOnly = !enemyOnly;
+                    powerMode = powerMode switch
+                    {
+                        PowerMode.AlwaysOn => PowerMode.NightOnly,
+                        PowerMode.NightOnly => PowerMode.EnemyOnly,
+                        _ => PowerMode.AlwaysOn
+                    };
                     ReleaseInvalidTargets();
                     UpdateScheduledPower();
                     RefreshBeamAndSpot();

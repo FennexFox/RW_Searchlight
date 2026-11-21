@@ -7,7 +7,7 @@ namespace SearchlightScenarioHarness
 {
     public sealed partial class ScenarioCheck
     {
-        private enum EnemyStandbyPhase { Waiting, Awake, Lost, CombinedDay }
+        private enum EnemyStandbyPhase { Waiting, Awake, Lost }
 
         private const int EnemyStandbyStep = 16;
         private static EnemyStandbyPhase enemyStandbyPhase;
@@ -25,17 +25,16 @@ namespace SearchlightScenarioHarness
             turret.SetAlertMode(DetectionAlertMode.Off);
             enemyStandbyPowerDraw = -turret.GetComp<CompPowerTrader>().Props.PowerConsumption;
             Check(turret.Policy == AssignmentPolicy.Independent, "Enemy Only fixture uses Independent policy");
-            Check(!NightOnlyToggle().isActive(), "new fixture starts with Night Only disabled");
-            EnemyOnlyToggle().toggleAction();
-            Check(EnemyOnlyToggle().isActive(), "Enemy Only command enables the setting");
+            PowerModeCommand(turret, "DS_AlwaysOn").action();
+            PowerModeCommand(turret, "DS_NightOnly").action();
+            PowerModeCommand(turret, "DS_EnemyOnly");
             enemyStandbyPhase = EnemyStandbyPhase.Waiting;
             Next(EnemyStandbyStep);
         }
 
         private static void TickEnemyStandby(int age)
         {
-            if (age < 90 && enemyStandbyPhase != EnemyStandbyPhase.Lost &&
-                enemyStandbyPhase != EnemyStandbyPhase.CombinedDay) return;
+            if (age < 90 && enemyStandbyPhase != EnemyStandbyPhase.Lost) return;
 
             switch (enemyStandbyPhase)
             {
@@ -58,7 +57,6 @@ namespace SearchlightScenarioHarness
 
                 case EnemyStandbyPhase.Awake:
                     bool fixedMode = turret.CurrentMode == SearchlightMode.Fixed;
-                    bool combined = NightOnlyToggle().isActive();
                     Check(Power(turret) && turret.IsOperating && PowerOutputIs(enemyStandbyPowerDraw),
                         "Enemy Only wakes and restores configured power after detection");
                     if (fixedMode)
@@ -74,10 +72,7 @@ namespace SearchlightScenarioHarness
                         Check(turret.LockedTarget == target && turret.SpotCell.IsValid &&
                             GroundGlow(target.Position) > 0.01f,
                             "Automatic Enemy Only wakes, tracks, and illuminates the hostile");
-                        if (combined)
-                            Check(EnemyOnlyToggle().isActive() && GenLocalDate.HourOfDay(Find.CurrentMap) == 18,
-                                "Night Only and Enemy Only wake together at 18:00");
-                        Write(combined ? "enemy-only-night-wake PASS" : "enemy-only-auto-wake PASS");
+                        Write("enemy-only-auto-wake PASS");
                     }
                     lastSpot = turret.SpotCell;
                     target.DeSpawn();
@@ -96,35 +91,16 @@ namespace SearchlightScenarioHarness
                         enemyStandbyPhase = EnemyStandbyPhase.Waiting;
                         Next(EnemyStandbyStep);
                     }
-                    else if (!NightOnlyToggle().isActive())
-                    {
-                        NightOnlyToggle().toggleAction();
-                        Check(NightOnlyToggle().isActive() && EnemyOnlyToggle().isActive(),
-                            "Night Only and Enemy Only can both be enabled");
-                        SpawnTarget(enemyStandbyAim);
-                        enemyStandbyPhase = EnemyStandbyPhase.CombinedDay;
-                        Next(EnemyStandbyStep);
-                    }
                     else
                     {
-                        Write("enemy-only PASS; fixed-detection; automatic-wake; lost-target-sleep; night-conjunction");
+                        PowerModeCommand(turret, "DS_EnemyOnly").action();
+                        PowerModeCommand(turret, "DS_AlwaysOn");
+                        Write("enemy-only PASS; fixed-detection; automatic-wake; lost-target-sleep; power-mode-cycle");
                         turret.Destroy(DestroyMode.Vanish);
                         lamps.Remove(turret);
                         lamps.Clear();
                         BeginNightOnly();
                     }
-                    return;
-
-                case EnemyStandbyPhase.CombinedDay:
-                    if (age < 90) return;
-                    Check(GenLocalDate.HourOfDay(Find.CurrentMap) == 12,
-                        "combined standby is tested during the day");
-                    CheckEnemyStandbyDark("with both settings on during daytime");
-                    Check(turret.LockedTarget == null,
-                        "combined daytime standby does not acquire its hostile");
-                    SetEnemyStandbyHour(18);
-                    enemyStandbyPhase = EnemyStandbyPhase.Awake;
-                    Next(EnemyStandbyStep);
                     return;
             }
         }
