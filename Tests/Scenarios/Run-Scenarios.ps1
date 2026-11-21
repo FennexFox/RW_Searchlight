@@ -1,6 +1,7 @@
 param(
     [int]$TimeoutSeconds = 420,
-    [string]$RimWorldPath = $env:RIMWORLD_DIR
+    [string]$RimWorldPath = $env:RIMWORLD_DIR,
+    [switch]$AtmosphereOverhaul
 )
 $ErrorActionPreference = 'Stop'
 $scenarioDir = (Resolve-Path -LiteralPath $PSScriptRoot).Path
@@ -30,6 +31,11 @@ dotnet build (Join-Path $scenarioDir 'ScenarioHarness.csproj') -c Release "-p:Ri
 if ($LASTEXITCODE -ne 0) { throw 'Scenario harness build failed' }
 
 $mods = @('ludeon.rimworld', 'DirectedSearchlights.Searchlight', 'searchlight.scenarioharness')
+$phases = @('fresh', 'current')
+if ($AtmosphereOverhaul) {
+    $mods = @('brrainz.harmony', 'ludeon.rimworld', 'acutus.AtmosphereOverhaul.release', 'DirectedSearchlights.Searchlight', 'searchlight.scenarioharness')
+    $phases = @('solar')
+}
 $items = ($mods | ForEach-Object { '    <li>' + $_ + '</li>' }) -join "`r`n"
 $xml = "<?xml version=`"1.0`" encoding=`"utf-8`"?>`r`n<ModsConfigData>`r`n  <version>$gameVersion</version>`r`n  <activeMods>`r`n$items`r`n  </activeMods>`r`n</ModsConfigData>`r`n"
 [IO.File]::WriteAllText((Join-Path $config 'ModsConfig.xml'), $xml, [Text.UTF8Encoding]::new($false))
@@ -46,11 +52,11 @@ try {
     }
     $result = Join-Path $profile 'scenario-results.txt'
     Write-Output "Profile: $profile"
-    foreach ($phase in @('fresh', 'current')) {
+    foreach ($phase in $phases) {
         $log = Join-Path $profile "$phase-console.log"
         $argLine = '-savedatafolder="' + $profile + '" -ds-scenario-phase=' + $phase +
             ' -ds-scenario-result="' + $result + '"'
-        if ($phase -eq 'fresh') { $argLine = '-quicktest ' + $argLine }
+        if ($phase -ne 'current') { $argLine = '-quicktest ' + $argLine }
         if ($gameVersion -eq '1.6') {
             $log = Join-Path $profile "$phase-Player.log"
             $argLine += ' -logFile "' + $log + '" -screen-width 1280 -screen-height 800'
@@ -90,7 +96,7 @@ try {
                 Copy-Item -LiteralPath $save -Destination (Join-Path $saves 'autostart.rws')
             }
             elseif ($phaseResult -notmatch ' PASS; totalElapsedMs=') {
-                throw "Scenario game did not pass after reload; profile $profile"
+                throw "Scenario $phase phase did not pass; profile $profile"
             }
         }
         finally {

@@ -127,6 +127,8 @@ namespace SearchlightCoordinationHarness
         private void BeginVisibility()
         {
             ClearFixtures();
+            CheckRetainedRay();
+            ClearFixtures();
             Building_Searchlight tower = Lamp(0, 0, tower: true);
             Building_Searchlight turret = Lamp(0, 8);
             tower.SetAlertMode(DetectionAlertMode.Off);
@@ -155,6 +157,48 @@ namespace SearchlightCoordinationHarness
                     BeginIndependentAndSweep();
                 });
             });
+        }
+
+        private void CheckRetainedRay()
+        {
+            Building_Searchlight lamp = Lamp(0, 0);
+            lamp.SetAlertMode(DetectionAlertMode.Off);
+            Pawn target = Hostile(15, 0);
+            var door = (Building_Door)GenSpawn.Spawn(
+                ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("Door"), ThingDefOf.Steel), Cell(5, 0), home);
+            fixtures.Add(door);
+            door.StartManualOpenBy(null);
+            lamp.SelectManualTarget(target);
+            Require(lamp.LockedTarget == target, "open door allows manual lock");
+
+            var reconcile = typeof(SearchlightMap).GetMethod("Reconcile", Diagnostics);
+            object[] args = { lamp, Now };
+            object beam = Read(lamp, "beam");
+            reconcile.Invoke(Network, args);
+            int traces = Count(beam, "RetainedRayTraceCount");
+            reconcile.Invoke(Network, args);
+            Require(traces > 0 && Count(beam, "RetainedRayTraceCount") == traces,
+                "same-tick retained checks reuse the clear ray");
+
+            target.Position = Cell(16, 0);
+            reconcile.Invoke(Network, args);
+            Require(lamp.LockedTarget == target && Count(beam, "RetainedRayTraceCount") == traces + 1,
+                "same-tick target movement retraces the retained ray");
+            typeof(Building_Door).GetMethod("DoorTryClose", Diagnostics).Invoke(door, null);
+            Require(!door.Open, "unoccupied door closes");
+            reconcile.Invoke(Network, args);
+            Require(lamp.LockedTarget == null && Reserved(Network, target) == 0,
+                "same-tick door closure invalidates the retained lock");
+
+            door.StartManualOpenBy(null);
+            lamp.SelectManualTarget(target);
+            reconcile.Invoke(Network, args);
+            Require(lamp.LockedTarget == target, "reopening the door permits a fresh lock");
+            Wall(10, 0);
+            reconcile.Invoke(Network, args);
+            Require(lamp.LockedTarget == null && Reserved(Network, target) == 0,
+                "same-tick wall construction invalidates the retained lock");
+            Write("retained ray reuse, movement, door changes and wall construction passed in one tick");
         }
 
         private void BeginIndependentAndSweep()
@@ -190,6 +234,16 @@ namespace SearchlightCoordinationHarness
                         "Sweep rejects out-of-arc automatic candidates and accepts the visible 60-cell limit");
                     Require(Reserved(Network, outside) == 0 && Reserved(Network, atLimit) == 1,
                         "exact range boundaries are reflected in reservations");
+                    lamp.SelectManualTarget(atLimit);
+                    Power(lamp, false);
+                    lamp.SetSweepHeading(90f);
+                    Require(Read(lamp, "manualTarget") == atLimit && Reserved(Network, atLimit) == 0,
+                        "unpowered Sweep keeps an eligible manual order without reserving the pawn");
+                    lamp.SetSweepHeading(0f);
+                    lamp.SetSweepHeading(90f);
+                    Power(lamp, true);
+                    Require(Read(lamp, "manualTarget") == null && Reserved(Network, atLimit) == 0,
+                        "rotating an unpowered sector away and back cancels the old manual order");
                     Write("independent ids=" + smallId.thingIDNumber + "/" + bigId.thingIDNumber + "; sweep range 60/61 passed");
                     BeginPerformance(0);
                 });

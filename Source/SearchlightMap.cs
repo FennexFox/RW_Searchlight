@@ -17,6 +17,8 @@ namespace DirectedSearchlights
         private readonly bool usesAtmosphereOverhaul;
         private int lastSolarTick = int.MinValue;
         private bool sunAboveHorizon;
+        private ThingListChangedCallbacks obstacleCallbacks;
+        private int edificeRevision;
 
         public SearchlightMap(Map map) : base(map)
         {
@@ -48,6 +50,25 @@ namespace DirectedSearchlights
         internal int CandidateSnapshotBuildCount => targets.CandidateSnapshotBuildCount;
         internal int CandidateEvaluationCount => targets.CandidateEvaluationCount;
 
+        internal int EdificeRevision
+        {
+            get
+            {
+                if (obstacleCallbacks == null)
+                {
+                    obstacleCallbacks = map.thingListChangedCallbacks;
+                    obstacleCallbacks.onThingAdded += EdificeChanged;
+                    obstacleCallbacks.onThingRemoved += EdificeChanged;
+                }
+                return edificeRevision;
+            }
+        }
+
+        private void EdificeChanged(Thing thing)
+        {
+            if (thing is Building && thing.def.IsEdifice()) edificeRevision++;
+        }
+
         public void Register(Building_Searchlight light) => Register(light, false);
 
         internal void Register(Building_Searchlight light, bool respawningAfterLoad)
@@ -69,7 +90,7 @@ namespace DirectedSearchlights
             if (!restoring) return;
             int tick = Find.TickManager.TicksGame;
             foreach (Building_Searchlight light in lights) targets.Reconcile(light, tick);
-            alerts.Restored();
+            alerts.Restored(lights);
             restoring = false;
         }
 
@@ -104,6 +125,12 @@ namespace DirectedSearchlights
 
         public override void MapRemoved()
         {
+            if (obstacleCallbacks != null)
+            {
+                obstacleCallbacks.onThingAdded -= EdificeChanged;
+                obstacleCallbacks.onThingRemoved -= EdificeChanged;
+                obstacleCallbacks = null;
+            }
             foreach (Building_Searchlight light in lights)
             {
                 light.ApplyLock(null, -1);

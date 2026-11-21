@@ -243,10 +243,9 @@ namespace DirectedSearchlights
                     fixedEnemy = null;
                 return null;
             }
-            if (!CanScan) return null;
             if (manualTarget != null)
             {
-                if (ValidTarget(manualTarget)) return manualTarget;
+                if (ValidTarget(manualTarget)) return CanScan ? manualTarget : null;
                 if (lockedTarget == manualTarget)
                 {
                     manualTarget = null;
@@ -254,7 +253,7 @@ namespace DirectedSearchlights
                 }
                 manualTarget = null;
             }
-            return ValidTarget(lockedTarget) ? lockedTarget : null;
+            return CanScan && ValidTarget(lockedTarget) ? lockedTarget : null;
         }
 
         internal void ApplyLock(Pawn pawn, int tick)
@@ -266,7 +265,8 @@ namespace DirectedSearchlights
 
         internal void RecordFixedEnemy(Pawn pawn) => fixedEnemy = pawn;
 
-        private bool ValidTarget(Pawn pawn) => IsDetectableHostile(pawn, Map) && WithinDetectionArea(pawn.Position, out _);
+        private bool ValidTarget(Pawn pawn) => IsDetectableHostile(pawn, Map) &&
+            WithinDetectionArea(pawn.Position, out _, pawn == lockedTarget || pawn == manualTarget || pawn == fixedEnemy);
         internal bool CanDetect(Pawn pawn) => ScansForEnemies && CanScan && ValidTarget(pawn);
 
         // The coordinator has already checked hostility and visibility state for this batch.
@@ -279,7 +279,7 @@ namespace DirectedSearchlights
             return true;
         }
 
-        private bool WithinDetectionArea(IntVec3 cell, out int distanceSquared)
+        private bool WithinDetectionArea(IntVec3 cell, out int distanceSquared, bool retained = false)
         {
             int dx = cell.x - Position.x;
             int dz = cell.z - Position.z;
@@ -288,7 +288,8 @@ namespace DirectedSearchlights
             if (!IsWithinSweepArc(cell)) return false;
             if (DetectThroughWalls)
                 return !cell.Roofed(Map);
-            return BeamField.Clear(Map, Position, cell);
+            return retained ? beam.ClearRetainedRay(Map, Position, cell, searchlights.EdificeRevision)
+                : BeamField.Clear(Map, Position, cell);
         }
 
         internal static bool IsDetectableHostile(Pawn pawn, Map map)

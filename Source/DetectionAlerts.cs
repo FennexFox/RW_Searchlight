@@ -21,7 +21,6 @@ namespace DirectedSearchlights
         private readonly HashSet<int> baselinePawns = new HashSet<int>();
         private readonly List<Message> liveMessages = new List<Message>();
         private List<DetectionRecord> savedRecords;
-        private bool seedBaseline;
         private int baselineUntil = -1;
         private int batchUntil;
 
@@ -51,7 +50,7 @@ namespace DirectedSearchlights
             // A manual acquisition can arrive after this map's tick. End the
             // absence now, before another lamp samples the pawn on the next tick.
             existing?.ObservePresence(tick, light);
-            if (seedBaseline || (tick < baselineUntil && baselinePawns.Contains(id)))
+            if (tick < baselineUntil && baselinePawns.Contains(id))
             {
                 if (!records.ContainsKey(id)) records.Add(id, new DetectionRecord { Pawn = pawn });
                 return;
@@ -75,7 +74,6 @@ namespace DirectedSearchlights
 
         internal void Tick(int tick, IReadOnlyList<Building_Searchlight> lights)
         {
-            if (seedBaseline) SeedBaseline(tick, lights);
             if (tick >= baselineUntil) baselinePawns.Clear();
             FlushIfDue(tick);
 
@@ -156,16 +154,18 @@ namespace DirectedSearchlights
 
         private void SeedBaseline(int tick, IReadOnlyList<Building_Searchlight> lights)
         {
-            seedBaseline = false;
             if (tick >= baselineUntil || lights.Count == 0) return;
 
             foreach (Pawn pawn in map.mapPawns.AllPawnsSpawned)
             {
                 int id = pawn.thingIDNumber;
+                if (!records.ContainsKey(id))
+                {
+                    var record = new DetectionRecord { Pawn = pawn };
+                    if (Detect(record, lights) == Presence.None) continue;
+                    records.Add(id, record);
+                }
                 baselinePawns.Add(id);
-                if (records.ContainsKey(id)) continue;
-                var record = new DetectionRecord { Pawn = pawn };
-                if (Detect(record, lights) != Presence.None) records.Add(id, record);
             }
         }
 
@@ -249,7 +249,7 @@ namespace DirectedSearchlights
             if (Scribe.mode == LoadSaveMode.Saving) savedRecords = null;
         }
 
-        internal void Restored()
+        internal void Restored(IReadOnlyList<Building_Searchlight> lights)
         {
             if (savedRecords != null)
             {
@@ -260,7 +260,7 @@ namespace DirectedSearchlights
 
             int tick = Find.TickManager.TicksGame;
             if (savedRecords == null) baselineUntil = tick + BaselineTicks + 1;
-            seedBaseline = tick < baselineUntil;
+            SeedBaseline(tick, lights);
             savedRecords = null;
         }
 
@@ -273,7 +273,6 @@ namespace DirectedSearchlights
             foreach (Message message in liveMessages) message.lookTargets?.Notify_MapRemoved(map);
             liveMessages.Clear();
             savedRecords = null;
-            seedBaseline = false;
             baselineUntil = -1;
         }
 

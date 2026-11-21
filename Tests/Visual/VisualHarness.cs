@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using DirectedSearchlights;
 using RimWorld;
 using UnityEngine;
@@ -100,6 +101,7 @@ namespace SearchlightVisualHarness
                         thing.TryGetComp<CompGlower>() != null)
                         thing.Destroy(DestroyMode.Vanish);
             }
+            CheckObstacleCache(map);
             lamp = (Building_Searchlight)GenSpawn.Spawn(DefDatabase<ThingDef>.GetNamed("DS_SearchlightTurret"), origin, map);
             lamp.GetComp<CompPowerTrader>().PowerOn = true;
             lamp.SetMode(SearchlightMode.Fixed);
@@ -111,6 +113,30 @@ namespace SearchlightVisualHarness
             ticks.CurTimeSpeed = TimeSpeed.Superfast;
             Find.UIRoot.screenshotMode.Active = true;
             Record($"setup; game={VersionControl.CurrentVersionString}; map={map.Size}; origin={origin}; diameter={SearchlightSettings.Diameter}");
+        }
+
+        private void CheckObstacleCache(Map map)
+        {
+            using var beam = new BeamField();
+            var counter = typeof(BeamField).GetProperty("ObstacleScanCount", BindingFlags.Instance | BindingFlags.NonPublic);
+            void Check(float heading, int expectedScans, int expectedDistance)
+            {
+                beam.Update(map, origin, heading, 18f, 4f);
+                int scans = (int)counter.GetValue(beam);
+                if (scans != expectedScans || beam.CenterCell.x - origin.x != expectedDistance)
+                    throw new InvalidOperationException($"Obstacle cache at heading {heading}: scans={scans}, endpoint={beam.CenterCell}");
+            }
+            Check(90f, 1, 18);
+            var steel = GenSpawn.Spawn(ThingDefOf.Steel, origin + new IntVec3(4, 0, 12), map);
+            Check(90.05f, 1, 18);
+            steel.Destroy();
+            Check(90f, 1, 18);
+            var wall = GenSpawn.Spawn(ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.Steel),
+                origin + new IntVec3(8, 0, 0), map);
+            Check(90.05f, 2, 7);
+            wall.Destroy();
+            Check(90f, 3, 18);
+            Record("Obstacle cache: item spawn/removal reused the footprint; wall spawn/removal refreshed it.");
         }
 
         private void Frame(string name, int center, float zoom)

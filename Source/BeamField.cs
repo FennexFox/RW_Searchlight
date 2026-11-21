@@ -28,10 +28,15 @@ namespace DirectedSearchlights
         private float diameter;
         private int lastRebuildTick = int.MinValue;
         private CellRect obstacleBounds;
-        private int obstacleListHash;
+        private int cachedEdificeRevision;
         private readonly List<IntVec3> obstacles = new List<IntVec3>();
+        private readonly List<IntVec3> retainedRayEdifices = new List<IntVec3>();
+        private Map retainedMap;
+        private IntVec3 retainedFrom, retainedTo;
+        private int retainedRevision;
         private bool hasObstacleCache;
         internal int ObstacleScanCount { get; private set; }
+        internal int RetainedRayTraceCount { get; private set; }
         internal int VisualRayTraceCount { get; private set; }
         internal int MeshPoseCount { get; private set; }
         private CellRect reachedBounds;
@@ -137,14 +142,48 @@ namespace DirectedSearchlights
         // Supercover traversal checks both touching cells at a grid corner. An open
         // door remains transparent because Verse's CanBeSeenOver owns that rule.
         public static bool Clear(Map map, IntVec3 from, IntVec3 to)
+            => Clear(map, from, to, (x, z) => Transparent(map, x, z));
+
+        internal bool ClearRetainedRay(Map map, IntVec3 from, IntVec3 to, int revision)
+        {
+            if (retainedMap == map && retainedFrom == from && retainedTo == to && retainedRevision == revision)
+            {
+                // Doors may change transparency between thing ticks without changing the edifice grid.
+                foreach (IntVec3 cell in retainedRayEdifices)
+                    if (!cell.CanBeSeenOverFast(map)) return false;
+                return true;
+            }
+            return TraceRetainedRay(map, from, to, revision);
+        }
+
+        private bool TraceRetainedRay(Map map, IntVec3 from, IntVec3 to, int revision)
+        {
+            RetainedRayTraceCount++;
+            retainedRayEdifices.Clear();
+            bool clear = Clear(map, from, to, (x, z) =>
+            {
+                var cell = new IntVec3(x, 0, z);
+                Building edifice = cell.GetEdifice(map);
+                if (edifice == null) return true;
+                retainedRayEdifices.Add(cell);
+                return edifice.CanBeSeenOver();
+            });
+            retainedMap = clear ? map : null;
+            retainedFrom = from;
+            retainedTo = to;
+            retainedRevision = revision;
+            return clear;
+        }
+
+        private static bool Clear(Map map, IntVec3 from, IntVec3 to, Func<int, int, bool> transparent)
         {
             if (map == null || !from.InBounds(map) || !to.InBounds(map)) return false;
             float dx = to.x - from.x;
             float dz = to.z - from.z;
             float length = Mathf.Sqrt(dx * dx + dz * dz);
             if (length < 0.0001f) return true;
-            IntVec3 ignored;
-            return Trace(map, from, dx / length, dz / length, length + 0.0001f, out ignored) >= length - 0.0001f;
+            return BeamGrid.Trace(from.x, from.z, dx / length, dz / length, length + 0.0001f,
+                transparent, out _, out _) >= length - 0.0001f;
         }
 
         private void Rebuild()
@@ -194,10 +233,9 @@ namespace DirectedSearchlights
             int stepsPerSide = Mathf.Max(12, Mathf.CeilToInt(halfAngle / AngularStep));
             for (int i = -stepsPerSide; i <= stepsPerSide; i++)
                 lanes.Add((float)i / stepsPerSide);
-            // Every edifice is listed in Everything, including natural rock. A spawn
-            // or despawn invalidates the footprint; doors are tested live below.
-            int listHash = map.listerThings.StateHashOfGroup(ThingRequestGroup.Everything);
-            if (!hasObstacleCache || obstacleListHash != listHash
+            // Edifice membership includes natural rock. Door transparency is tested live below.
+            int edificeRevision = map.GetComponent<SearchlightMap>().EdificeRevision;
+            if (!hasObstacleCache || cachedEdificeRevision != edificeRevision
                 || minX < obstacleBounds.minX || maxX > obstacleBounds.maxX
                 || minZ < obstacleBounds.minZ || maxZ > obstacleBounds.maxZ)
             {
@@ -210,7 +248,7 @@ namespace DirectedSearchlights
                     if (cell != origin && cell.GetEdifice(map) != null) obstacles.Add(cell);
                 }
                 hasObstacleCache = true;
-                obstacleListHash = listHash;
+                cachedEdificeRevision = edificeRevision;
                 ObstacleScanCount++;
             }
 

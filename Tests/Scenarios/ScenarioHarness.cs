@@ -74,6 +74,7 @@ namespace SearchlightScenarioHarness
                     case TrackingStep: TickTracking(age); break;
                     case SweepApiStep: if (age >= 1) TickSweepApi(age); break;
                     case EnemyStandbyStep: TickEnemyStandby(age); break;
+                    case SolarStep: TickSolar(age); break;
                     case NightOnlyStep: if (age >= 90) TickNightOnly(age); break;
                 }
             }
@@ -95,6 +96,12 @@ namespace SearchlightScenarioHarness
                 map.roofGrid.SetRoof(c, null);
                 foreach (Thing thing in c.GetThingList(map).ToList())
                     if (thing.def.passability == Traversability.Impassable) thing.Destroy(DestroyMode.Vanish);
+            }
+            GenCommandLine.TryGetCommandLineArg("ds-scenario-phase", out string phase);
+            if (phase == "solar")
+            {
+                BeginSolar();
+                return;
             }
             turret = SpawnLamp("DS_SearchlightTurret", origin);
             tower = SpawnLamp("DS_SearchlightTower", origin + new IntVec3(0, 0, 8));
