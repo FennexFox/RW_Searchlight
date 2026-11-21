@@ -21,8 +21,15 @@ connect it to power:
 
 The turret operates under a roof. The tower stops operating if its cell becomes
 roofed. Enable **Night only** on either building to suspend its beam, detection,
-and power draw from 06:00 until 18:00 local time. Each light saves its own
-setting, which starts off so existing lights keep their schedule.
+and power draw from 06:00 until 18:00 local time. With Atmosphere Overhaul
+active, the light follows local sunrise and sunset as they change with latitude
+and season.
+
+Enable **Activate on detection** to keep the beam off and draw zero power
+until the light detects an eligible enemy. In Fixed mode the beam lights its
+designated area. Sweep and Automatic track the target. Enable both options
+to scan for enemies only at night. Each light saves both settings, which
+default to off.
 
 | Mode | Behavior |
 |---|---|

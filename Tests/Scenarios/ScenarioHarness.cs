@@ -73,6 +73,7 @@ namespace SearchlightScenarioHarness
                     case 12: if (age >= 180) TenLamps(); break;
                     case TrackingStep: TickTracking(age); break;
                     case SweepApiStep: if (age >= 1) TickSweepApi(age); break;
+                    case EnemyStandbyStep: TickEnemyStandby(age); break;
                     case NightOnlyStep: if (age >= 90) TickNightOnly(age); break;
                 }
             }

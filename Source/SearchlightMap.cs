@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using RimWorld;
 using Verse;
 
 namespace DirectedSearchlights
@@ -11,11 +14,33 @@ namespace DirectedSearchlights
         private readonly TargetCoordinator targets;
         private readonly DetectionAlerts alerts;
         private bool restoring;
+        private readonly bool usesAtmosphereOverhaul;
+        private int lastSolarTick = int.MinValue;
+        private bool sunAboveHorizon;
 
         public SearchlightMap(Map map) : base(map)
         {
+            usesAtmosphereOverhaul = LoadedModManager.RunningModsListForReading.Any(mod =>
+                string.Equals(mod.PackageIdPlayerFacing, "acutus.AtmosphereOverhaul.release", StringComparison.OrdinalIgnoreCase));
             alerts = new DetectionAlerts(map);
             targets = new TargetCoordinator(map, ReportAcquisition);
+        }
+
+        internal bool IsDaylight
+        {
+            get
+            {
+                if (!usesAtmosphereOverhaul) return GenLocalDate.HourOfDay(map) is >= 6 and < 18;
+                int tick = Find.TickManager.TicksAbs;
+                if (lastSolarTick != tick)
+                {
+                    // AO maps sin(solar elevation) from [-0.05, 0.7] to celestial glow [0, 1].
+                    // At the horizon that glow is 1/15, independent of weather and artificial light.
+                    sunAboveHorizon = GenCelestial.CelestialSunGlow(map, tick) > 1f / 15f;
+                    lastSolarTick = tick;
+                }
+                return sunAboveHorizon;
+            }
         }
 
         internal int ReservationCount => targets.ReservationCount;

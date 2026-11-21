@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
   <DS_NightOnly>야간에만 작동</DS_NightOnly>
-  <DS_NightOnlyDesc>현지 시각 오전 6시에 소등하고 전력 소비와 적 감지를 중지합니다. 오후 6시에 전원이 공급되고 스위치가 켜져 있으면 선택한 모드로 작동을 재개합니다.</DS_NightOnlyDesc>
+  <DS_NightOnlyDesc>낮에는 소등하고 적 감지와 전력 소비를 중지합니다. 기본 주간 시간은 현지 시각 06:00~18:00이며, Atmosphere Overhaul 사용 시에는 해당 지역의 일출부터 일몰까지입니다.</DS_NightOnlyDesc>
+  <DS_EnemyOnly>적 감지 시 작동</DS_EnemyOnly>
+  <DS_EnemyOnlyDesc>전원이 공급되고 스위치가 켜져 있는 동안 적을 계속 탐색합니다. 적을 감지한 동안에만 전력을 소비하고 선택한 모드로 비춥니다. 야간에만 작동 설정도 함께 적용됩니다.</DS_EnemyOnlyDesc>
   <DS_ModeFixed>고정</DS_ModeFixed>
   <DS_ModeSweep>회전 조사</DS_ModeSweep>
   <DS_ModeAutomatic>자동</DS_ModeAutomatic>

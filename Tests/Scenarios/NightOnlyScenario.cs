@@ -104,6 +104,8 @@ namespace SearchlightScenarioHarness
                     CheckNightOnlyLight(true);
                     toggle.toggleAction();
                     Check(toggle.isActive(), "Night Only command enables the setting");
+                    EnemyOnlyToggle().toggleAction();
+                    Check(EnemyOnlyToggle().isActive(), "Enemy Only command enables the setting before save");
                     SetNightOnlyPhase(NightOnlyPhase.EnabledDaytime, 17);
                     break;
                 case NightOnlyPhase.EnabledDaytime:
@@ -113,8 +115,11 @@ namespace SearchlightScenarioHarness
                     break;
                 case NightOnlyPhase.ReloadedDaytime:
                     Check(NightOnlyToggle().isActive(), "Night Only setting survives save/load");
+                    Check(EnemyOnlyToggle().isActive(), "Enemy Only setting survives save/load");
                     Check(GenLocalDate.HourOfDay(Find.CurrentMap) == 17, "save/load preserves the daytime fixture hour");
                     if (!WaitForNetworkPower(age, "reloaded fixture", false)) return;
+                    EnemyOnlyToggle().toggleAction();
+                    Check(!EnemyOnlyToggle().isActive(), "Enemy Only can be disabled after its save/load check");
                     CheckDaytimeStandby();
                     SetNightOnlyPhase(NightOnlyPhase.Dusk, 18);
                     break;
@@ -148,6 +153,9 @@ namespace SearchlightScenarioHarness
 
         private static Command_Toggle NightOnlyToggle() => turret.GetGizmos().OfType<Command_Toggle>()
             .Single(g => g.defaultLabel == "DS_NightOnly".Translate());
+
+        private static Command_Toggle EnemyOnlyToggle() => turret.GetGizmos().OfType<Command_Toggle>()
+            .Single(g => g.defaultLabel == "DS_EnemyOnly".Translate());
 
         private static bool WaitForNetworkPower(int age, string context, bool waitForConfiguredSpot)
         {
