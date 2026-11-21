@@ -72,6 +72,8 @@ namespace DirectedSearchlights
         internal bool HasManualTarget => manualTarget != null;
         internal bool UsesFixedDetection => mode == SearchlightMode.Fixed && powerMode == PowerMode.EnemyOnly;
         internal bool HasFixedEnemy => fixedEnemy != null;
+        internal DetectionAlertMode EffectiveAlertMode => mode == SearchlightMode.Fixed ? DetectionAlertMode.Off : alertMode;
+        private bool ScansForEnemies => mode != SearchlightMode.Fixed || powerMode == PowerMode.EnemyOnly;
 
         protected virtual bool DetectThroughWalls => false;
         protected virtual bool RequiresOpenSky => false;
@@ -223,7 +225,7 @@ namespace DirectedSearchlights
 
         internal bool ScanDue(int tick)
         {
-            return (mode != SearchlightMode.Fixed || UsesFixedDetection) &&
+            return ScansForEnemies &&
                 (tick + thingIDNumber) % AcquireInterval == 0 && CanScan;
         }
 
@@ -265,7 +267,7 @@ namespace DirectedSearchlights
         internal void RecordFixedEnemy(Pawn pawn) => fixedEnemy = pawn;
 
         private bool ValidTarget(Pawn pawn) => IsDetectableHostile(pawn, Map) && WithinDetectionArea(pawn.Position, out _);
-        internal bool CanDetect(Pawn pawn) => mode != SearchlightMode.Fixed && CanScan && ValidTarget(pawn);
+        internal bool CanDetect(Pawn pawn) => ScansForEnemies && CanScan && ValidTarget(pawn);
 
         // The coordinator has already checked hostility and visibility state for this batch.
         internal bool TryDescribeCandidate(Pawn pawn, out TargetCandidate candidate)
@@ -318,9 +320,6 @@ namespace DirectedSearchlights
             if (!IsOperating || beam == null) { ClearVisuals(); return; }
             beam.Update(Map, Position, aimHeading, aimRange, SearchlightSettings.Diameter);
             IntVec3 cell = beam.CenterCell;
-            if (lockedTarget != null && lockedTarget.Spawned && lockedTarget.Map == Map &&
-                beam.Reaches(lockedTarget.Position))
-                cell = lockedTarget.Position;
             if (!cell.IsValid) { RemoveSpot(); return; }
             if (lightSpot == null || lightSpot.Destroyed)
                 lightSpot = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("DS_LightSpot"));
@@ -387,6 +386,8 @@ namespace DirectedSearchlights
             manualTarget = pawn;
             SetImmediateLock(CanScan ? pawn : null);
             lastAcquireTick = -1;
+            UpdateScheduledPower();
+            RefreshBeamAndSpot();
         }
 
         private bool CanDesignate(Pawn pawn) => mode != SearchlightMode.Fixed && ValidTarget(pawn);
@@ -399,6 +400,8 @@ namespace DirectedSearchlights
             SetImmediateLock(null);
             if (next == SearchlightMode.Sweep) { sweepOffset = 0f; sweepDirection = 1; }
             lastAcquireTick = -1;
+            UpdateScheduledPower();
+            RefreshBeamAndSpot();
         }
 
         public void SetPolicy(AssignmentPolicy next)

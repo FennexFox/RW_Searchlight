@@ -174,8 +174,9 @@ namespace SearchlightScenarioHarness
                     Write("night-only network ready; context=" + context + "; waitTicks=" + age +
                         "; configuredWatts=" + -normalPowerOutput);
                 }
-                if (!waitForConfiguredSpot || turret.SpotCell == nightOnlyAim) return true;
-                Check(age < 2400, context + " reaches its configured spot within the same local hour");
+                if (!waitForConfiguredSpot || (turret.SpotCell == nightOnlyAim && GroundGlow(nightOnlyAim) > 0.01f))
+                    return true;
+                Check(age < 2400, context + " lights its configured spot within the same local hour");
                 return false;
             }
             Check(age < 2400, context + " energizes through RimWorld's network within one local hour");

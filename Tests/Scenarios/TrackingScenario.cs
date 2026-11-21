@@ -262,6 +262,10 @@ namespace SearchlightScenarioHarness
             Check(Mathf.Abs(Mathf.DeltaAngle(expectedHeading, turret.AimHeading)) < 0.25f &&
                 Mathf.Abs(expectedRange - turret.AimRange) < 0.15f,
                 "moving pawn aim follows its interpolated subcell position");
+            if (Mathf.Abs(turret.AimRange - Mathf.Round(turret.AimRange)) < 0.4f &&
+                Mathf.Abs(Mathf.DeltaAngle(turret.AimHeading, 90f)) < 0.01f)
+                Check(turret.SpotCell == East(Mathf.RoundToInt(turret.AimRange)),
+                    "the glower follows the reached aim cell while the pawn crosses a cell boundary");
             subcellAimSamples++;
         }
 

@@ -73,8 +73,30 @@ namespace SearchlightCoordinationHarness
                 {
                     ExpectAlerts(1, 1, 0, 0);
                     Write("Off lamp locked to a different pawn preserves continuous detectability across cooldown");
-                    CheckShortAbsence(target);
+                    CheckFixedPassiveCoverage(target);
                 });
+            });
+        }
+
+        private void CheckFixedPassiveCoverage(Pawn target)
+        {
+            Building_Searchlight passive = lamps[0];
+            passive.SetMode(SearchlightMode.Fixed);
+            passive.SetAlertMode(DetectionAlertMode.VisualAndSound);
+            AdvancePowerMode(passive, "DS_AlwaysOn");
+            AdvancePowerMode(passive, "DS_NightOnly");
+            foreach (Building_Searchlight lamp in lamps.Skip(1)) Power(lamp, false);
+            After(RequiredAbsence + ScanInterval, () =>
+            {
+                Require(passive.IsOperating && Reserved(Network, target) == 0,
+                    "only the Fixed lamp sees the hostile, without reserving it");
+                ExpectAlerts(1, 1, 0, 0);
+                AdvancePowerMode(passive, "DS_EnemyOnly");
+                passive.SetMode(SearchlightMode.Automatic);
+                passive.SetAlertMode(DetectionAlertMode.Visual);
+                passive.SelectManualTarget(target);
+                foreach (Building_Searchlight lamp in lamps.Skip(1)) Power(lamp, true);
+                After(BatchWindow + ScanInterval, () => CheckShortAbsence(target));
             });
         }
 
@@ -102,6 +124,9 @@ namespace SearchlightCoordinationHarness
         private void CheckCompleteAbsence(Pawn target, IntVec3 detectionCell)
         {
             ExpectAlerts(1, 1, 0, 0);
+            // The cooldown uses game ticks, while message lifetime uses real time.
+            // Start with a clear message stack so this rearmed alert gets its own message.
+            Messages.Clear();
             target.DeSpawn();
             After(RequiredAbsence + 1, () =>
             {
@@ -111,8 +136,31 @@ namespace SearchlightCoordinationHarness
                 {
                     ExpectAlerts(2, 2, 0, 1);
                     Write("ten-lamp deduplication, no repeat after power/continuous tracking, 60/180/119/120-tick boundaries passed");
-                    BeginCoalescedDetection(target);
+                    CheckFixedMarker(target);
                 });
+            });
+        }
+
+        private static void AdvancePowerMode(Building_Searchlight lamp, string currentMode)
+        {
+            string label = "DS_PowerMode".Translate(currentMode.Translate());
+            lamp.GetGizmos().OfType<Command_Action>().Single(g => g.defaultLabel == label).action();
+        }
+
+        private void CheckFixedMarker(Pawn target)
+        {
+            Building_Searchlight passive = lamps[0];
+            passive.SetMode(SearchlightMode.Fixed);
+            AdvancePowerMode(passive, "DS_AlwaysOn");
+            AdvancePowerMode(passive, "DS_NightOnly");
+            foreach (Building_Searchlight lamp in lamps.Skip(1)) Power(lamp, false);
+            After(1, () =>
+            {
+                ExpectAlerts(2, 2, 0, 0);
+                AdvancePowerMode(passive, "DS_EnemyOnly");
+                passive.SetMode(SearchlightMode.Automatic);
+                foreach (Building_Searchlight lamp in lamps.Skip(1)) Power(lamp, true);
+                BeginCoalescedDetection(target);
             });
         }
 

@@ -73,6 +73,20 @@ namespace SearchlightScenarioHarness
                             GroundGlow(target.Position) > 0.01f,
                             "Automatic Enemy Only wakes, tracks, and illuminates the hostile");
                         Write("enemy-only-auto-wake PASS");
+                        turret.SetMode(SearchlightMode.Sweep);
+                        CheckEnemyStandbyOff("immediately after changing tracking mode");
+                        Pawn nearer = GenerateHostile();
+                        SpawnHostile(nearer, East(5));
+                        turret.SelectManualTarget(nearer);
+                        Check(turret.LockedTarget == nearer && turret.SpotCell == enemyStandbyAim,
+                            "a manual lock inside the beam leaves the glower at the reached endpoint");
+                        Check(turret.IsOperating && PowerOutputIs(enemyStandbyPowerDraw) && turret.SpotCell.IsValid,
+                            "manual selection restores the draw and endpoint before the next tick");
+                        turret.SelectManualTarget(null);
+                        CheckEnemyStandbyOff("immediately after clearing the manual target");
+                        nearer.DeSpawn();
+                        turret.SetMode(SearchlightMode.Automatic);
+                        turret.SelectManualTarget(target);
                     }
                     lastSpot = turret.SpotCell;
                     target.DeSpawn();

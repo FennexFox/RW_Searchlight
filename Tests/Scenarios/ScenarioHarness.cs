@@ -185,7 +185,7 @@ namespace SearchlightScenarioHarness
             turret.SelectManualTarget(target);
             Check(turret.LockedTarget == null, "turret manual targeting also requires line of sight");
             Check(tower.LockedTarget == target, "tower locks through wall");
-            Check(tower.SpotCell.IsValid && tower.SpotCell.x < origin.x + 5, "tower illuminates the near side of the wall");
+            Check(tower.SpotCell == origin + new IntVec3(4, 0, 5), "tower illuminates the near side of the wall");
             var spot = tower.SpotCell.GetThingList(Find.CurrentMap).Single(t => t.def.defName == "DS_LightSpot");
             float radius = spot.TryGetComp<CompGlower>().GlowRadius;
             Check(radius >= 1.5f && radius < 2.5f, "clipped beam has a narrower illumination footprint");

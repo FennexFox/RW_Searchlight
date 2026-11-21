@@ -27,6 +27,13 @@ namespace DirectedSearchlights
         private float range;
         private float diameter;
         private int lastRebuildTick = int.MinValue;
+        private CellRect obstacleBounds;
+        private int obstacleListHash;
+        private readonly List<IntVec3> obstacles = new List<IntVec3>();
+        private bool hasObstacleCache;
+        internal int ObstacleScanCount { get; private set; }
+        internal int VisualRayTraceCount { get; private set; }
+        internal int MeshPoseCount { get; private set; }
         private CellRect reachedBounds;
         private bool hasReachedBounds;
         private readonly List<Vector3> vertices = new List<Vector3>();
@@ -48,6 +55,7 @@ namespace DirectedSearchlights
                 if (tick == lastRebuildTick || (tick + origin.x * 7 + origin.z) % 15 != 0) return;
             }
 
+            if (map != newMap || origin != newOrigin || newRange <= 0f) hasObstacleCache = false;
             map = newMap;
             origin = newOrigin;
             heading = newHeading;
@@ -101,6 +109,9 @@ namespace DirectedSearchlights
             if (material != null) UnityEngine.Object.Destroy(material);
             mesh = null;
             material = null;
+            map = null;
+            hasObstacleCache = false;
+            lastRebuildTick = int.MinValue;
             hasReachedBounds = false;
             CenterCell = IntVec3.Invalid;
         }
@@ -183,14 +194,40 @@ namespace DirectedSearchlights
             int stepsPerSide = Mathf.Max(12, Mathf.CeilToInt(halfAngle / AngularStep));
             for (int i = -stepsPerSide; i <= stepsPerSide; i++)
                 lanes.Add((float)i / stepsPerSide);
-            for (int x = minX; x <= maxX; x++)
-            for (int z = minZ; z <= maxZ; z++)
+            // Every edifice is listed in Everything, including natural rock. A spawn
+            // or despawn invalidates the footprint; doors are tested live below.
+            int listHash = map.listerThings.StateHashOfGroup(ThingRequestGroup.Everything);
+            if (!hasObstacleCache || obstacleListHash != listHash
+                || minX < obstacleBounds.minX || maxX > obstacleBounds.maxX
+                || minZ < obstacleBounds.minZ || maxZ > obstacleBounds.maxZ)
             {
-                IntVec3 cell = new IntVec3(x, 0, z);
+                obstacleBounds = reachedBounds.ExpandedBy(2);
+                obstacles.Clear();
+                for (int x = Mathf.Max(0, obstacleBounds.minX); x <= Mathf.Min(map.Size.x - 1, obstacleBounds.maxX); x++)
+                for (int z = Mathf.Max(0, obstacleBounds.minZ); z <= Mathf.Min(map.Size.z - 1, obstacleBounds.maxZ); z++)
+                {
+                    IntVec3 cell = new IntVec3(x, 0, z);
+                    if (cell != origin && cell.GetEdifice(map) != null) obstacles.Add(cell);
+                }
+                hasObstacleCache = true;
+                obstacleListHash = listHash;
+                ObstacleScanCount++;
+            }
+
+            // In unobstructed space every strip reaches its analytical rounded tip.
+            // Keep the supercover trace for beams touching blockers or the map edge.
+            // A sub-cell focus narrower than the lens can send converging strips
+            // across the axis beyond the focus, outside the ordinary sector.
+            bool needsClipping = spread < 0f || minX < 0 || minZ < 0 || maxX >= map.Size.x || maxZ >= map.Size.z;
+            foreach (IntVec3 cell in obstacles)
+            {
+                int x = cell.x, z = cell.z;
+                if (x < minX || x > maxX || z < minZ || z > maxZ) continue;
                 float along = (x - origin.x) * forwardX + (z - origin.z) * forwardZ;
                 float across = (x - origin.x) * forwardZ - (z - origin.z) * forwardX;
                 if (along < -1f || Mathf.Abs(across) > Mathf.Max(0f, along) * slope + 1f) continue;
-                if (!cell.InBounds(map) || cell.CanBeSeenOverFast(map)) continue;
+                if (cell.CanBeSeenOverFast(map)) continue;
+                needsClipping = true;
                 for (int ix = -1; ix <= 1; ix += 2)
                 for (int iz = -1; iz <= 1; iz += 2)
                 {
@@ -208,7 +245,8 @@ namespace DirectedSearchlights
                     lanes.Add(Mathf.Min(1f, lane + nudge));
                 }
             }
-            lanes.Sort();
+            if (needsClipping) lanes.Sort();
+            MeshPoseCount++;
             vertices.Clear();
             uvs.Clear();
             Vector3 lens = new Vector3(origin.x + 0.5f, overlayHeight, origin.z + 0.5f);
@@ -222,13 +260,18 @@ namespace DirectedSearchlights
                 Vector3 start = lens + new Vector3(offsetX, 0f, offsetZ);
                 Vector3 ray = new Vector3(forwardX + forwardZ * lane * spread, 0f,
                     forwardZ - forwardX * lane * spread);
-                float rayScale = ray.magnitude;
-                Vector3 direction = ray / rayScale;
                 float u = (lane + 1f) * 0.5f;
                 float limit = BeamGrid.VisualRayLimit(bodyLength, capDepth, u);
-                float traveled = Trace(map, origin, direction.x, direction.z, limit * rayScale,
-                    out _, offsetX, offsetZ);
-                float depth = Mathf.Min(limit, traveled / rayScale);
+                float depth = limit;
+                if (needsClipping)
+                {
+                    float rayScale = ray.magnitude;
+                    Vector3 direction = ray / rayScale;
+                    float traveled = Trace(map, origin, direction.x, direction.z, limit * rayScale,
+                        out _, offsetX, offsetZ);
+                    depth = Mathf.Min(limit, traveled / rayScale);
+                    VisualRayTraceCount++;
+                }
                 float bodyDepth = Mathf.Min(bodyLength, depth);
                 vertices.Add(start);
                 vertices.Add(start + ray * bodyDepth);

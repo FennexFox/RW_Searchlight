@@ -57,7 +57,7 @@ namespace DirectedSearchlights
                 return;
             }
 
-            if (light.AlertMode == DetectionAlertMode.Off) return;
+            if (light.EffectiveAlertMode == DetectionAlertMode.Off) return;
 
             if (pending.TryGetValue(id, out PendingDetection detection))
             {
@@ -138,7 +138,7 @@ namespace DirectedSearchlights
             Presence presence = Presence.None;
             if (previous != null && previous.CanDetect(pawn))
             {
-                presence = previous.AlertMode == DetectionAlertMode.Off ? Presence.Passive : Presence.Alerting;
+                presence = previous.EffectiveAlertMode == DetectionAlertMode.Off ? Presence.Passive : Presence.Alerting;
                 if (!checkAlertMode || presence == Presence.Alerting) return presence;
             }
             else record.Detector = null;
@@ -147,7 +147,7 @@ namespace DirectedSearchlights
                 Building_Searchlight light = lights[i];
                 if (light == previous || !light.CanDetect(pawn)) continue;
                 record.Detector = light;
-                presence = light.AlertMode == DetectionAlertMode.Off ? Presence.Passive : Presence.Alerting;
+                presence = light.EffectiveAlertMode == DetectionAlertMode.Off ? Presence.Passive : Presence.Alerting;
                 if (!checkAlertMode || presence == Presence.Alerting) break;
             }
 
@@ -182,7 +182,7 @@ namespace DirectedSearchlights
                 DetectionAlertMode mode = DetectionAlertMode.Off;
                 foreach (Building_Searchlight light in entry.Value.Lights)
                 {
-                    if (light.Map == map && light.AlertMode > mode) mode = light.AlertMode;
+                    if (light.Map == map && light.EffectiveAlertMode > mode) mode = light.EffectiveAlertMode;
                 }
 
                 if (mode == DetectionAlertMode.Off)
