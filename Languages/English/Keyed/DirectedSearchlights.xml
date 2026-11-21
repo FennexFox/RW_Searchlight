@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
+  <DS_PowerMode>Power Mode: {0}</DS_PowerMode>
+  <DS_PowerModeDesc>Click to cycle through Always on, Night only, and Activate on detection.</DS_PowerModeDesc>
+  <DS_AlwaysOn>Always on</DS_AlwaysOn>
+  <DS_AlwaysOnDesc>Run the selected beam mode whenever the light is switched on and powered.</DS_AlwaysOnDesc>
   <DS_NightOnly>Night only</DS_NightOnly>
-  <DS_NightOnlyDesc>At 06:00 local time, turn off the beam and suspend power draw and detection. At 18:00, resume the selected mode if switched on and powered.</DS_NightOnlyDesc>
+  <DS_NightOnlyDesc>Suspend the beam, detection, and power draw during the day (06:00–18:00 local time). With Atmosphere Overhaul, daylight runs from local sunrise to sunset.</DS_NightOnlyDesc>
+  <DS_EnemyOnly>Activate on detection</DS_EnemyOnly>
+  <DS_EnemyOnlyDesc>Scan day and night while switched on and powered. Draw power and turn on the beam only while an enemy is detected.</DS_EnemyOnlyDesc>
   <DS_ModeFixed>Fixed</DS_ModeFixed>
   <DS_ModeSweep>Sweep</DS_ModeSweep>
   <DS_ModeAutomatic>Automatic</DS_ModeAutomatic>

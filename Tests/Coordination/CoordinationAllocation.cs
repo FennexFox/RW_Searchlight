@@ -6,6 +6,7 @@ using DirectedSearchlights;
 using RimWorld;
 using RimWorld.Planet;
 using Verse;
+using Verse.AI;
 
 namespace SearchlightCoordinationHarness
 {
@@ -241,10 +242,49 @@ namespace SearchlightCoordinationHarness
                 {
                     Require(lamps.Select(l => l.LockedTarget).SequenceEqual(assigned), "existing shared locks remain stable after their hold");
                     if (index + 1 < PerformanceCounts.Length) BeginPerformance(index + 1);
-                    else BeginMapIsolation();
+                    else BeginMovingPerformance();
                 });
             };
             After(1, sampleTick);
+        }
+
+        private void BeginMovingPerformance()
+        {
+            ClearFixtures();
+            Pawn walker = Hostile(36, -8);
+            for (int i = 0; i < 10; i++)
+            {
+                Building_Searchlight lamp = Lamp(0, i - 5);
+                lamp.SetAlertMode(DetectionAlertMode.Off);
+                lamp.SelectManualTarget(walker);
+            }
+            After(90, () =>
+            {
+                Require(lamps.All(l => l.LockedTarget == walker && l.SpotCell == walker.Position),
+                    "ten lamps have settled on the target before it starts walking");
+                // Other coordination fixtures stop their pawns every tick.
+                pawns.Remove(walker);
+                walker.jobs.StartJob(JobMaker.MakeJob(JobDefOf.Goto, Cell(48, 8)), JobCondition.InterruptForced);
+                int BeamCount(string counter) => lamps.Sum(lamp => Count(Read(lamp, "beam"), counter));
+                int startPoses = BeamCount("MeshPoseCount");
+                int startScans = BeamCount("ObstacleScanCount");
+                int startTraces = BeamCount("VisualRayTraceCount");
+                IntVec3 startCell = walker.Position;
+                After(120, () =>
+                {
+                    int poses = BeamCount("MeshPoseCount") - startPoses;
+                    int scans = BeamCount("ObstacleScanCount") - startScans;
+                    int traces = BeamCount("VisualRayTraceCount") - startTraces;
+                    Write($"moving-perf; lamps=10; ticks=120; start={startCell}; end={walker.Position}; " +
+                        $"meshPoses={poses}; obstacleScans={scans}; visualRayTraces={traces}");
+                    Require(walker.Position.DistanceToSquared(startCell) >= 4 && lamps.All(l => l.LockedTarget == walker),
+                        "the moving target stayed locked by all ten lamps");
+                    Require(poses > 200 && scans < poses && traces == 0,
+                        "fractional motion reuses the obstacle scan and requires no visual ray traces in open ground");
+                    pawns.Add(walker);
+                    BeginMapIsolation();
+                });
+            });
         }
 
         private void BeginMapIsolation()

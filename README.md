@@ -20,9 +20,17 @@ connect it to power:
 | Searchlight tower | 200 W | 75 steel, 1 industrial component |
 
 The turret operates under a roof. The tower stops operating if its cell becomes
-roofed. Enable **Night only** on either building to suspend its beam, detection,
-and power draw from 06:00 until 18:00 local time. Each light saves its own
-setting, which starts off so existing lights keep their schedule.
+roofed. Click **Power Mode** on either building to cycle through three settings.
+
+1. **Always on** (default) runs the selected beam mode while powered and switched on.
+2. **Night only** suspends the beam, detection and power draw from 06:00 until
+   18:00 local time. With Atmosphere Overhaul active it follows local sunrise and sunset.
+3. **Activate on detection** scans day and night with the beam off and zero
+   power draw until it detects an eligible enemy. Fixed lights illuminate their
+   designated area. Sweep and Automatic lights track the target.
+
+Each light saves its power mode. Older saves with both options enabled use
+Activate on detection.
 
 | Mode | Behavior |
 |---|---|

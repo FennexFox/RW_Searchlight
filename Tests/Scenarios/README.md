@@ -8,4 +8,6 @@ The tracking checks sample aim range and angle on every tick as the beam extends
 
 Most fixture phases control `CompPowerTrader.PowerOn` directly. The performance check records wall time for 180 game ticks with zero and ten powered lamps on the same map.
 
-The final Night Only phase connects the searchlight to a `VanometricPowerCell` and saves during daytime standby. A second game process loads the save and checks the persisted setting, the shared power network, the 18:00 and 06:00 power transitions, and loss of illumination after the generator is removed.
+The final Night Only phase connects the searchlight to a `VanometricPowerCell` and saves during daytime standby. A second game process loads the save and checks the persisted Night only and Activate on detection modes on separate lamps, the shared power network, the 18:00 and 06:00 power transitions, and loss of illumination after the generator is removed.
+
+Before that save phase, the Enemy Only fixture checks fixed-mode detection without a target lock, Automatic-mode wake and tracking, and standby after a target disappears. It verifies dark 0 W waiting and cycles the same power-mode command through Always on, Night only, Activate on detection, and back to Always on.

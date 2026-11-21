@@ -62,7 +62,11 @@ namespace SearchlightScenarioHarness
             try
             {
                 Map map = Find.CurrentMap;
-                turret = map.listerThings.AllThings.OfType<Building_Searchlight>().Single();
+                var savedLamps = map.listerThings.AllThings.OfType<Building_Searchlight>();
+                turret = savedLamps.Single(lamp => lamp.def.defName == "DS_SearchlightTurret");
+                var detectionLamp = savedLamps.Single(lamp => lamp.def.defName == "DS_SearchlightTower");
+                PowerModeCommand(detectionLamp, "DS_EnemyOnly");
+                detectionLamp.Destroy(DestroyMode.Vanish);
                 nightOnlyGenerator = map.listerThings.AllThings.Single(t => t.def.defName == "VanometricPowerCell");
                 nightOnlyPower = turret.GetComp<CompPowerTrader>();
                 nightOnlyGeneratorPower = nightOnlyGenerator.TryGetComp<CompPowerTrader>();
@@ -96,14 +100,16 @@ namespace SearchlightScenarioHarness
             switch (nightOnlyPhase)
             {
                 case NightOnlyPhase.DefaultDaytime:
-                    var toggle = NightOnlyToggle();
-                    Check(!toggle.isActive(), "Night Only starts disabled");
                     if (!WaitForNetworkPower(age, "fresh fixture", true)) return;
                     Check(nightOnlyPower.PowerOutput == normalPowerOutput,
                         "default operation consumes the configured " + -normalPowerOutput + " W during the day");
                     CheckNightOnlyLight(true);
-                    toggle.toggleAction();
-                    Check(toggle.isActive(), "Night Only command enables the setting");
+                    PowerModeCommand(turret, "DS_AlwaysOn").action();
+                    PowerModeCommand(turret, "DS_NightOnly");
+                    var detectionLamp = SpawnLamp("DS_SearchlightTower", origin + new IntVec3(0, 0, -8));
+                    PowerModeCommand(detectionLamp, "DS_AlwaysOn").action();
+                    PowerModeCommand(detectionLamp, "DS_NightOnly").action();
+                    PowerModeCommand(detectionLamp, "DS_EnemyOnly");
                     SetNightOnlyPhase(NightOnlyPhase.EnabledDaytime, 17);
                     break;
                 case NightOnlyPhase.EnabledDaytime:
@@ -112,7 +118,7 @@ namespace SearchlightScenarioHarness
                     step = 99;
                     break;
                 case NightOnlyPhase.ReloadedDaytime:
-                    Check(NightOnlyToggle().isActive(), "Night Only setting survives save/load");
+                    PowerModeCommand(turret, "DS_NightOnly");
                     Check(GenLocalDate.HourOfDay(Find.CurrentMap) == 17, "save/load preserves the daytime fixture hour");
                     if (!WaitForNetworkPower(age, "reloaded fixture", false)) return;
                     CheckDaytimeStandby();
@@ -146,8 +152,15 @@ namespace SearchlightScenarioHarness
             }
         }
 
-        private static Command_Toggle NightOnlyToggle() => turret.GetGizmos().OfType<Command_Toggle>()
-            .Single(g => g.defaultLabel == "DS_NightOnly".Translate());
+        private static Command_Action PowerModeCommand(Building_Searchlight lamp, string expectedMode)
+        {
+            var labels = new[] { "DS_AlwaysOn", "DS_NightOnly", "DS_EnemyOnly" }
+                .Select(key => "DS_PowerMode".Translate(key.Translate()).ToString()).ToArray();
+            var command = lamp.GetGizmos().OfType<Command_Action>().Single(g => labels.Contains(g.defaultLabel));
+            Check(command.defaultLabel == "DS_PowerMode".Translate(expectedMode.Translate()),
+                lamp.def.defName + " shows power mode " + expectedMode);
+            return command;
+        }
 
         private static bool WaitForNetworkPower(int age, string context, bool waitForConfiguredSpot)
         {
@@ -161,8 +174,9 @@ namespace SearchlightScenarioHarness
                     Write("night-only network ready; context=" + context + "; waitTicks=" + age +
                         "; configuredWatts=" + -normalPowerOutput);
                 }
-                if (!waitForConfiguredSpot || turret.SpotCell == nightOnlyAim) return true;
-                Check(age < 2400, context + " reaches its configured spot within the same local hour");
+                if (!waitForConfiguredSpot || (turret.SpotCell == nightOnlyAim && GroundGlow(nightOnlyAim) > 0.01f))
+                    return true;
+                Check(age < 2400, context + " lights its configured spot within the same local hour");
                 return false;
             }
             Check(age < 2400, context + " energizes through RimWorld's network within one local hour");

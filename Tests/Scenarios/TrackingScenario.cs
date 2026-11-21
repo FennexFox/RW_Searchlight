@@ -24,6 +24,7 @@ namespace SearchlightScenarioHarness
         private static float previousHeading;
         private static int darkSamples;
         private static int walkStep;
+        private static int subcellAimSamples;
         private static Pawn nearerLowId;
         private static Pawn nearerHighId;
         private static Pawn farther;
@@ -219,6 +220,7 @@ namespace SearchlightScenarioHarness
         private static void FollowPawn()
         {
             int distance = PawnWalk[walkStep];
+            CheckSubcellAim();
             if (target.Position != East(distance))
             {
                 Check(turret.LockedTarget == target, "lock persists while pawn walks inside the boundary");
@@ -229,8 +231,9 @@ namespace SearchlightScenarioHarness
             if (distance == 61)
             {
                 if (turret.LockedTarget != null) return;
+                Check(subcellAimSamples > 0, "pawn movement produced interpolated aim samples");
                 Check(turret.SpotCell != target.Position, "61-cell pawn cannot become the endpoint");
-                Write("moving-boundary PASS; same spawned pawn walked 60->59->58->59->60->61");
+                Write("moving-boundary PASS; same spawned pawn walked 60->59->58->59->60->61; subcellAimSamples=" + subcellAimSamples);
                 NextTracking(TrackingPhase.ResumeSweep);
                 return;
             }
@@ -240,6 +243,30 @@ namespace SearchlightScenarioHarness
             if (!TargetLit("walking pawn at " + distance)) return;
             walkStep++;
             WalkToNextCell();
+        }
+
+        private static void CheckSubcellAim()
+        {
+            if (!target.pather.Moving) return;
+            float progress = target.pather.MovePercentage;
+            if (progress <= 0.1f || progress >= 0.9f) return;
+
+            Vector3 start = target.Position.ToVector3Shifted();
+            Vector3 end = target.pather.nextCell.ToVector3Shifted();
+            Vector3 pawnPosition = Vector3.Lerp(start, end, progress);
+            Vector3 lampPosition = turret.Position.ToVector3Shifted();
+            float dx = pawnPosition.x - lampPosition.x;
+            float dz = pawnPosition.z - lampPosition.z;
+            float expectedHeading = Mathf.Atan2(dx, dz) * Mathf.Rad2Deg;
+            float expectedRange = Mathf.Min(60f, Mathf.Sqrt(dx * dx + dz * dz));
+            Check(Mathf.Abs(Mathf.DeltaAngle(expectedHeading, turret.AimHeading)) < 0.25f &&
+                Mathf.Abs(expectedRange - turret.AimRange) < 0.15f,
+                "moving pawn aim follows its interpolated subcell position");
+            if (Mathf.Abs(turret.AimRange - Mathf.Round(turret.AimRange)) < 0.4f &&
+                Mathf.Abs(Mathf.DeltaAngle(turret.AimHeading, 90f)) < 0.01f)
+                Check(turret.SpotCell == East(Mathf.RoundToInt(turret.AimRange)),
+                    "the glower follows the reached aim cell while the pawn crosses a cell boundary");
+            subcellAimSamples++;
         }
 
         private static void ResumeSweep()

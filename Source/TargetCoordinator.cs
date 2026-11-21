@@ -45,6 +45,7 @@ namespace DirectedSearchlights
                 foreach (Building_Searchlight light in dueLights)
                 {
                     light.RecordScan(tick);
+                    if (light.UsesFixedDetection && light.HasFixedEnemy) continue;
                     Pawn current = light.LockedTarget;
                     bool redistribute = current != null && light.Policy == AssignmentPolicy.Spread &&
                         !light.HasManualTarget && ReservationsFor(current) > 1;
@@ -59,7 +60,9 @@ namespace DirectedSearchlights
                         CandidateSnapshotBuildCount++;
                     }
 
-                    if (redistribute) TryRedistribute(light, tick);
+                    // Fixed lights detect a trigger without assigning or tracking that pawn.
+                    if (light.UsesFixedDetection) light.RecordFixedEnemy(BestCandidate(light, false, null));
+                    else if (redistribute) TryRedistribute(light, tick);
                     else ChangeLock(light, BestCandidate(light, false, null), tick);
                 }
             }
@@ -123,9 +126,10 @@ namespace DirectedSearchlights
         {
             TargetCandidate best = default;
             int bestOccupancy = 0;
+            bool usesReservations = !light.UsesFixedDetection && light.Policy == AssignmentPolicy.Spread;
             foreach (Pawn pawn in candidates)
             {
-                int count = light.Policy == AssignmentPolicy.Spread ? ReservationsFor(pawn) : 0;
+                int count = usesReservations ? ReservationsFor(pawn) : 0;
                 if (freeDirectOnly && count > 0) continue;
                 CandidateEvaluationCount++;
                 if (!light.TryDescribeCandidate(pawn, out TargetCandidate candidate) || (freeDirectOnly && !candidate.Direct))
