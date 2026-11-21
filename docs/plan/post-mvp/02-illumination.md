@@ -101,8 +101,9 @@ No modification of the user's normal save/config during testing.
    Dirty queries should be constant-time lookups, not LOS computations.
 6. **Acceptance and migration.** Run the correctness matrix and controlled cost
    measurements below, then make a deliberate default-mode decision. Retain
-   legacy mode and write a separate 1.7 adapter/build validation when that game
-   is available. Update 1 coordination must behave identically in both modes.
+   legacy mode. Validate the adapter first on RimWorld 1.6, then build and run
+   the same vanilla lighting checks on the installed 1.7. Record results for
+   each version. Update 1 coordination must behave identically in both modes.
 
 ## Acceptance criteria
 
@@ -116,6 +117,15 @@ No modification of the user's normal save/config during testing.
 - A rotating beam does not illuminate the reserved pawn before physical coverage
   reaches it. A walking pawn crossing the cone boundary receives changing ground
   light. No field reaches past the gameplay range even if the visual cap does.
+- Track a pawn walking diagonally. Sample while it is between tile centers and
+  check that the rendered beam and illuminated cell centers follow the same
+  fractional aim pose through the tile transition.
+- With Activate on detection enabled, remove the last detected enemy. Repeat
+  with Night only enabled across local sunrise in Atmosphere Overhaul while the
+  enemy remains in range. On the next update each lamp must draw zero power
+  and withdraw its contribution from every previously lit cell. Compare with
+  the lamp-off baseline using artificial ground glow so daylight cannot mask
+  stale light.
 - Two lamps overlap, one turns off, then the other is removed: each step produces
   the expected maximum without stale light. Existing vanilla lamps and daylight
   are preserved. Repeat across save/load and map switching.

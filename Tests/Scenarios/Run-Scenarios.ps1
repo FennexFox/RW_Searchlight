@@ -74,8 +74,12 @@ try {
                 (@(Get-Content -LiteralPath $result) | Select-Object -Skip $resultLineCount) -join [Environment]::NewLine
             }
             else { '' }
-            if ($proc.ExitCode -ne 0 -or
-                $phaseResult -notmatch ('assemblyMvid=' + [regex]::Escape($expectedMvid) + '(?:\s|;)')) {
+            if ($proc.ExitCode -ne 0) {
+                $failure = [regex]::Match($phaseResult, '(?m)^\S+ FAIL\b[^\r\n]*').Value
+                if (!$failure) { $failure = "See game log: $log" }
+                throw "Scenario $phase phase exited with code $($proc.ExitCode). $failure (profile $profile)"
+            }
+            if ($phaseResult -notmatch ('assemblyMvid=' + [regex]::Escape($expectedMvid) + '(?:\s|;)')) {
                 throw "Scenario $phase phase did not use this checkout's assembly; profile $profile"
             }
             if ($phase -eq 'fresh') {

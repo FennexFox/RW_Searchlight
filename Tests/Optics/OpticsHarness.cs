@@ -46,6 +46,13 @@ namespace SearchlightOpticsHarness
                 else if (phase == 2 && Find.TickManager.TicksGame - phaseTick >= 60)
                 {
                     Measure("advanced-goggles");
+                    MeasureMidBeam(true);
+                    lamp.GetComp<CompPowerTrader>().PowerOn = false;
+                    Next(3);
+                }
+                else if (phase == 3 && Find.TickManager.TicksGame - phaseTick >= 60)
+                {
+                    MeasureMidBeam(false);
                     Finish(true);
                 }
             }
@@ -79,6 +86,16 @@ namespace SearchlightOpticsHarness
                 Find.TickManager.DebugSetTicksGame(Find.TickManager.TicksGame + 2500);
             Write("setup; lamp=" + lamp.Position + "; shooter=" + shooter.Position + "; hour=" + GenLocalDate.HourOfDay(map) + "; skyGlow=" + map.skyManager.CurSkyGlow);
             Next(1);
+        }
+
+        private static void MeasureMidBeam(bool operating)
+        {
+            var cell = lamp.Position + new IntVec3(7, 0, 0);
+            Check(lamp.IsOperating == operating, "mid-beam power state");
+            Check(lamp.SpotCell == (operating ? lamp.Position + new IntVec3(15, 0, 0) : IntVec3.Invalid),
+                "mid-beam sample uses the settled 15-cell aim or the cleared endpoint");
+            float ground = lamp.Map.glowGrid.GroundGlowAt(cell, ignoreSky: true);
+            Write("mid-beam; power=" + (operating ? "ON" : "OFF") + "; distance=7; cell=" + cell + "; groundGlow=" + ground);
         }
 
         private static void Measure(string label)
