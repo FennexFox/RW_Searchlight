@@ -177,15 +177,17 @@ status; never leave a mixture of registered old and new lighting providers.
 
 ## Progress
 
-Plan written; no adapter API, performance budget or precise-light implementation
-has yet been validated.
+The one-cell adapter passed on RimWorld 1.6.4871 with vanilla and CE, and
+on 1.7.5014 with vanilla. Each test read the actual ground lighting mesh and
+repeated measurements in a separate process after loading the save. See
+[the lighting verification record](../../verification/illumination/README.md).
 
 ## Decision log
 
 Use a sparse map-owned field rather than one Thing per cell. Keep gameplay range
 at 60 and treat the rounded extension as cosmetic. Prefer max overlap to stacking.
-Do not assert any particular private game field/hook until the integration proof
-has checked the installed assemblies. Keep current AO scope closed.
+The verified adapter reads the indexed accumulated glow using optional Harmony
+and invalidates changed cells at the glow grid update. Keep current AO scope closed.
 
 ## Outcomes / Retrospective
 
