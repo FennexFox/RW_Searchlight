@@ -1,0 +1,155 @@
+using System;
+using DirectedSearchlights;
+using RimWorld;
+using Verse;
+
+namespace SearchlightScenarioHarness
+{
+    public sealed partial class ScenarioCheck
+    {
+        private enum EnemyStandbyPhase { Waiting, Awake, Lost }
+
+        private const int EnemyStandbyStep = 16;
+        private static EnemyStandbyPhase enemyStandbyPhase;
+        private static IntVec3 enemyStandbyAim;
+        private static float enemyStandbyPowerDraw;
+        private static int automaticScansBeforeStandby;
+
+        private static void BeginEnemyStandby()
+        {
+            SetEnemyStandbyHour(12);
+            enemyStandbyAim = origin + new IntVec3(12, 0, 0);
+            turret = SpawnLamp("DS_SearchlightTurret", origin);
+            turret.SetMode(SearchlightMode.Fixed);
+            turret.SetAimCell(enemyStandbyAim);
+            turret.SetAlertMode(DetectionAlertMode.Off);
+            enemyStandbyPowerDraw = -turret.GetComp<CompPowerTrader>().Props.PowerConsumption;
+            Check(turret.Policy == AssignmentPolicy.Independent, "Enemy Only fixture uses Independent policy");
+            PowerModeCommand(turret, "DS_AlwaysOn").action();
+            PowerModeCommand(turret, "DS_NightOnly").action();
+            PowerModeCommand(turret, "DS_EnemyOnly");
+            enemyStandbyPhase = EnemyStandbyPhase.Waiting;
+            Next(EnemyStandbyStep);
+        }
+
+        private static void TickEnemyStandby(int age)
+        {
+            if (age < 90 && enemyStandbyPhase != EnemyStandbyPhase.Lost) return;
+
+            switch (enemyStandbyPhase)
+            {
+                case EnemyStandbyPhase.Waiting:
+                    CheckEnemyStandbyDark("while waiting");
+                    Check(turret.Policy == AssignmentPolicy.Independent,
+                        "Enemy Only fixture uses Independent policy");
+                    Check(turret.LockedTarget == null, "Enemy Only standby does not lock a target before wake");
+                    if (turret.CurrentMode == SearchlightMode.Fixed)
+                        Check(turret.AcquisitionCount >= 2,
+                            "fixed Enemy Only scans while waiting without assigning a target");
+                    else
+                        Check(turret.AcquisitionCount >= automaticScansBeforeStandby + 2,
+                            "Automatic Enemy Only scans while waiting without a target lock");
+                    Write("enemy-only-wait PASS; mode=" + turret.CurrentMode + "; scans=" + turret.AcquisitionCount);
+                    SpawnTarget(enemyStandbyAim);
+                    enemyStandbyPhase = EnemyStandbyPhase.Awake;
+                    Next(EnemyStandbyStep);
+                    return;
+
+                case EnemyStandbyPhase.Awake:
+                    bool fixedMode = turret.CurrentMode == SearchlightMode.Fixed;
+                    Check(Power(turret) && turret.IsOperating && PowerOutputIs(enemyStandbyPowerDraw),
+                        "Enemy Only wakes and restores configured power after detection");
+                    if (fixedMode)
+                    {
+                        Check(turret.LockedTarget == null,
+                            "Fixed Enemy Only detects without locking or tracking the hostile");
+                        Check(turret.SpotCell == enemyStandbyAim && GroundGlow(enemyStandbyAim) > 0.01f,
+                            "Fixed Enemy Only lights its configured aim after detection");
+                        Write("enemy-only-fixed-wake PASS; spot=" + turret.SpotCell);
+                    }
+                    else
+                    {
+                        Check(turret.LockedTarget == target && turret.SpotCell.IsValid &&
+                            GroundGlow(target.Position) > 0.01f,
+                            "Automatic Enemy Only wakes, tracks, and illuminates the hostile");
+                        Write("enemy-only-auto-wake PASS");
+                        turret.SetMode(SearchlightMode.Sweep);
+                        CheckEnemyStandbyOff("immediately after changing tracking mode");
+                        Pawn nearer = GenerateHostile();
+                        SpawnHostile(nearer, East(5));
+                        turret.SelectManualTarget(nearer);
+                        Check(turret.LockedTarget == nearer && turret.SpotCell == enemyStandbyAim,
+                            "a manual lock inside the beam leaves the glower at the reached endpoint");
+                        Check(turret.IsOperating && PowerOutputIs(enemyStandbyPowerDraw) && turret.SpotCell.IsValid,
+                            "manual selection restores the draw and endpoint before the next tick");
+                        turret.SelectManualTarget(null);
+                        CheckEnemyStandbyOff("immediately after clearing the manual target");
+                        nearer.DeSpawn();
+                        turret.SetMode(SearchlightMode.Automatic);
+                        turret.SelectManualTarget(target);
+                    }
+                    lastSpot = turret.SpotCell;
+                    target.DeSpawn();
+                    target = null;
+                    enemyStandbyPhase = EnemyStandbyPhase.Lost;
+                    Next(EnemyStandbyStep);
+                    return;
+
+                case EnemyStandbyPhase.Lost:
+                    if (age < 2 || !CheckEnemyStandbyAsleep("target lost")) return;
+                    Check(turret.LockedTarget == null, "Enemy Only releases target assignment after it disappears");
+                    if (turret.CurrentMode == SearchlightMode.Fixed)
+                    {
+                        turret.SetMode(SearchlightMode.Automatic);
+                        automaticScansBeforeStandby = turret.AcquisitionCount;
+                        enemyStandbyPhase = EnemyStandbyPhase.Waiting;
+                        Next(EnemyStandbyStep);
+                    }
+                    else
+                    {
+                        PowerModeCommand(turret, "DS_EnemyOnly").action();
+                        PowerModeCommand(turret, "DS_AlwaysOn");
+                        Write("enemy-only PASS; fixed-detection; automatic-wake; lost-target-sleep; power-mode-cycle");
+                        turret.Destroy(DestroyMode.Vanish);
+                        lamps.Remove(turret);
+                        lamps.Clear();
+                        BeginNightOnly();
+                    }
+                    return;
+            }
+        }
+
+        private static bool CheckEnemyStandbyAsleep(string context)
+        {
+            CheckEnemyStandbyOff(context + " after target loss");
+            return SpotCleared("Enemy Only " + context);
+        }
+
+        private static void CheckEnemyStandbyDark(string context)
+        {
+            CheckEnemyStandbyOff(context);
+            Check(GroundGlow(enemyStandbyAim) <= 0.01f,
+                "Enemy Only ground light is clear " + context);
+        }
+
+        private static void CheckEnemyStandbyOff(string context)
+        {
+            Check(Power(turret) && !turret.IsOperating && PowerOutputIs(0f),
+                "Enemy Only remains powered, dark, and at 0 W " + context);
+            Check(!turret.SpotCell.IsValid, "Enemy Only clears its endpoint immediately " + context);
+        }
+
+        private static bool PowerOutputIs(float expected) =>
+            Math.Abs(turret.GetComp<CompPowerTrader>().PowerOutput - expected) < 0.01f;
+
+        private static void SetEnemyStandbyHour(int hour)
+        {
+            Map map = Find.CurrentMap;
+            const int ticksPerHour = 2500;
+            const int ticksPerDay = 24 * ticksPerHour;
+            int ticksAhead = (hour * ticksPerHour - GenLocalDate.DayTick(map) + ticksPerDay) % ticksPerDay;
+            Find.TickManager.DebugSetTicksGame(Find.TickManager.TicksGame + ticksAhead);
+            Check(GenLocalDate.HourOfDay(map) == hour, "test clock reaches local hour " + hour);
+        }
+    }
+}

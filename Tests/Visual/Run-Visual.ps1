@@ -1,6 +1,11 @@
-param([int]$TimeoutSeconds = 180)
+param(
+    [int]$TimeoutSeconds = 180,
+    [string]$RimWorldPath = (Join-Path $PSScriptRoot '..\..\..\..')
+)
 $ErrorActionPreference = 'Stop'
-$game = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..\..')).Path
+$game = (Resolve-Path -LiteralPath $RimWorldPath).Path
+$mod = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+. (Join-Path $PSScriptRoot '../RunnerModStaging.ps1')
 $exe = Join-Path $game 'RimWorld.exe'
 if ((Test-Path -LiteralPath $exe -PathType Leaf) -and
     (Test-Path -LiteralPath (Join-Path $game 'Assembly-CSharp.dll') -PathType Leaf)) {
@@ -14,12 +19,14 @@ else {
     }
     $gameVersion = '1.6'
 }
+$expectedMvid = Get-AssemblyMvid (Join-Path $mod "$gameVersion/Assemblies/DirectedSearchlights.dll")
 $profile = Join-Path $env:TEMP ('SearchlightVisual-' + [guid]::NewGuid().ToString('N'))
 $config = Join-Path $profile 'Config'
 $harness = Join-Path $profile 'HarnessMod'
 $assemblyDir = Join-Path $harness 'Assemblies'
 $about = Join-Path $harness 'About'
 New-Item -ItemType Directory -Path $config,$about,$assemblyDir | Out-Null
+'<Prefs><runInBackground>True</runInBackground></Prefs>' | Set-Content -LiteralPath (Join-Path $config 'Prefs.xml') -Encoding utf8
 @"
 <ModMetaData>
   <name>Searchlight Visual Harness</name>
@@ -42,8 +49,13 @@ dotnet build (Join-Path $PSScriptRoot 'VisualHarness.csproj') -c Release "-p:Rim
 if ($LASTEXITCODE -ne 0) { throw 'Visual harness build failed' }
 $junction = Join-Path $game 'Mods/SearchlightVisualHarness'
 if (Test-Path -LiteralPath $junction) { throw "Refusing to replace existing path: $junction" }
-New-Item -ItemType Junction -Path $junction -Target $harness | Out-Null
+$createdHarnessJunction = $false
+$checkoutJunction = $null
+$process = $null
 try {
+    $checkoutJunction = Add-SearchlightCheckoutToGame $game $mod 'SearchlightVisualMod'
+    New-Item -ItemType Junction -Path $junction -Target $harness | Out-Null
+    $createdHarnessJunction = $true
     Write-Output "Profile: $profile"
     $argLine = '-quicktest -savedatafolder="' + $profile + '" -ds-visual-output="' + $profile + '"'
     if ($gameVersion -eq '1.6') {
@@ -51,6 +63,9 @@ try {
     }
     $process = Start-Process -FilePath $exe -ArgumentList $argLine -WorkingDirectory $game -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput (Join-Path $profile 'console.log') -RedirectStandardError (Join-Path $profile 'console-error.log')
+    # Keep the OS handle available for ExitCode after a fast game shutdown.
+    $null = $process.Handle
+    if ($gameVersion -eq '1.7') { & (Join-Path $PSScriptRoot '../Enable-TestRendering.ps1') -GameProcess $process }
     if (!$process.WaitForExit($TimeoutSeconds * 1000)) {
         $process.Kill()
         $process.WaitForExit()
@@ -58,14 +73,20 @@ try {
     }
     $result = Join-Path $profile 'visual-results.txt'
     if (Test-Path -LiteralPath $result) { Get-Content -LiteralPath $result }
-    if ($process.ExitCode -ne 0 -or !(Test-Path -LiteralPath $result) -or (Get-Content -LiteralPath $result -Tail 1) -ne 'PASS') {
+    $resultText = if (Test-Path -LiteralPath $result) { Get-Content -LiteralPath $result -Raw } else { '' }
+    if ($process.ExitCode -ne 0 -or $resultText -notmatch '(?m)^PASS\s*$' -or
+        $resultText -notmatch ('assemblyMvid=' + [regex]::Escape($expectedMvid) + '(?:\s|;)')) {
         throw "Visual harness failed with exit code $($process.ExitCode). Profile: $profile"
     }
 }
 finally {
-    $item = Get-Item -LiteralPath $junction -Force
-    if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0 -or $item.Target -ne $harness) {
-        throw "Unexpected junction target. Left intact: $junction"
+    if ($process -and -not $process.HasExited) { $process.Kill(); $process.WaitForExit() }
+    if ($createdHarnessJunction -and (Test-Path -LiteralPath $junction)) {
+        $item = Get-Item -LiteralPath $junction -Force
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0 -or $item.Target -ne $harness) {
+            throw "Unexpected junction target. Left intact: $junction"
+        }
+        [IO.Directory]::Delete($junction, $false)
     }
-    [IO.Directory]::Delete($junction, $false)
+    Remove-SearchlightCheckoutJunction $checkoutJunction
 }

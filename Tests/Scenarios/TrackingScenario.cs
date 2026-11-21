@@ -11,7 +11,7 @@ namespace SearchlightScenarioHarness
     {
         private enum TrackingPhase
         {
-            FixedAtFifteen, ExtendToSixty, FixedNorth, RotateToTarget, FollowPawn,
+            FixedAtFifteen, ExtendToSixty, RetractToFifteen, FixedNorth, RotateToTarget, FollowPawn,
             ResumeSweep, AcquireOccluded, RetainLock, RankCandidates, ManualLock,
             LosePower, RestorePower, DestroyLamp
         }
@@ -20,9 +20,11 @@ namespace SearchlightScenarioHarness
         private static readonly int[] PawnWalk = { 59, 58, 59, 60, 61 };
         private static TrackingPhase trackingPhase;
         private static float previousRange;
+        private static int rangeSteps;
         private static float previousHeading;
         private static int darkSamples;
         private static int walkStep;
+        private static int subcellAimSamples;
         private static Pawn nearerLowId;
         private static Pawn nearerHighId;
         private static Pawn farther;
@@ -56,10 +58,19 @@ namespace SearchlightScenarioHarness
                     Check(turret.LockedTarget == null, "fixed mode rejects manual targeting");
                     turret.SetMode(SearchlightMode.Automatic);
                     previousRange = turret.AimRange;
+                    rangeSteps = 0;
                     NextTracking(TrackingPhase.ExtendToSixty);
                     break;
                 case TrackingPhase.ExtendToSixty:
                     ExtendToSixty();
+                    break;
+                case TrackingPhase.RetractToFifteen:
+                    CheckTiltStep(15f);
+                    if (turret.AimRange != 15f) break;
+                    Check(rangeSteps == 3 && turret.SpotCell == East(15), "inward tilt reaches the exact aim cell in three ticks");
+                    Write("inward-tilt PASS; from=60; to=15; movingTicks=" + rangeSteps);
+                    turret.SetAimCell(origin + new IntVec3(0, 0, 60));
+                    NextTracking(TrackingPhase.FixedNorth);
                     break;
                 case TrackingPhase.FixedNorth:
                     if (age >= 90) BeginRotation();
@@ -122,9 +133,7 @@ namespace SearchlightScenarioHarness
 
         private static void ExtendToSixty()
         {
-            Check(turret.AimRange >= previousRange - 0.001f && turret.AimRange <= previousRange + 0.601f,
-                "live tracking extends range gradually each tick (" + previousRange + " -> " + turret.AimRange + ")");
-            previousRange = turret.AimRange;
+            CheckTiltStep(60f);
             if (turret.LockedTarget == null) return;
             Check(turret.LockedTarget == target, "automatic mode acquires the 60-cell pawn");
             if (turret.AimRange <= 56f)
@@ -134,12 +143,29 @@ namespace SearchlightScenarioHarness
                 darkSamples++;
             }
             if (turret.AimRange < 59.99f) return;
-            Check(darkSamples >= 40, "range extension includes many intermediate dark ticks");
+            Check(rangeSteps == 3 && darkSamples >= 1, "outward tilt takes three moving ticks and keeps an unreached pawn dark");
+            // Automatic patrol may turn away before its staggered acquisition scan.
+            // At full range the head can still be panning back toward the pawn.
+            if (Mathf.Abs(Mathf.DeltaAngle(turret.AimHeading, 90f)) > 0.01f) return;
             if (!TargetLit("range settled at 60")) return;
-            Write("smooth-range PASS; from=15; to=60; intermediateDarkTicks=" + darkSamples);
+            Write("outward-tilt PASS; from=15; to=60; movingTicks=" + rangeSteps + "; intermediateDarkTicks=" + darkSamples);
             turret.SetMode(SearchlightMode.Fixed);
-            turret.SetAimCell(origin + new IntVec3(0, 0, 60));
-            NextTracking(TrackingPhase.FixedNorth);
+            turret.SetAimCell(East(15));
+            rangeSteps = 0;
+            NextTracking(TrackingPhase.RetractToFifteen);
+        }
+
+        private static void CheckTiltStep(float targetRange)
+        {
+            float range = turret.AimRange;
+            if (range == previousRange) return;
+            float previous = Mathf.Atan2(previousRange, 2f) * Mathf.Rad2Deg;
+            float current = Mathf.Atan2(range, 2f) * Mathf.Rad2Deg;
+            float target = Mathf.Atan2(targetRange, 2f) * Mathf.Rad2Deg;
+            Check(Mathf.Abs(current - Mathf.MoveTowards(previous, target, 2f)) <= 0.001f,
+                "each moving tick tilts two degrees or settles at the target pitch");
+            previousRange = range;
+            rangeSteps++;
         }
 
         private static void BeginRotation()
@@ -194,6 +220,7 @@ namespace SearchlightScenarioHarness
         private static void FollowPawn()
         {
             int distance = PawnWalk[walkStep];
+            CheckSubcellAim();
             if (target.Position != East(distance))
             {
                 Check(turret.LockedTarget == target, "lock persists while pawn walks inside the boundary");
@@ -204,8 +231,9 @@ namespace SearchlightScenarioHarness
             if (distance == 61)
             {
                 if (turret.LockedTarget != null) return;
+                Check(subcellAimSamples > 0, "pawn movement produced interpolated aim samples");
                 Check(turret.SpotCell != target.Position, "61-cell pawn cannot become the endpoint");
-                Write("moving-boundary PASS; same spawned pawn walked 60->59->58->59->60->61");
+                Write("moving-boundary PASS; same spawned pawn walked 60->59->58->59->60->61; subcellAimSamples=" + subcellAimSamples);
                 NextTracking(TrackingPhase.ResumeSweep);
                 return;
             }
@@ -215,6 +243,30 @@ namespace SearchlightScenarioHarness
             if (!TargetLit("walking pawn at " + distance)) return;
             walkStep++;
             WalkToNextCell();
+        }
+
+        private static void CheckSubcellAim()
+        {
+            if (!target.pather.Moving) return;
+            float progress = target.pather.MovePercentage;
+            if (progress <= 0.1f || progress >= 0.9f) return;
+
+            Vector3 start = target.Position.ToVector3Shifted();
+            Vector3 end = target.pather.nextCell.ToVector3Shifted();
+            Vector3 pawnPosition = Vector3.Lerp(start, end, progress);
+            Vector3 lampPosition = turret.Position.ToVector3Shifted();
+            float dx = pawnPosition.x - lampPosition.x;
+            float dz = pawnPosition.z - lampPosition.z;
+            float expectedHeading = Mathf.Atan2(dx, dz) * Mathf.Rad2Deg;
+            float expectedRange = Mathf.Min(60f, Mathf.Sqrt(dx * dx + dz * dz));
+            Check(Mathf.Abs(Mathf.DeltaAngle(expectedHeading, turret.AimHeading)) < 0.25f &&
+                Mathf.Abs(expectedRange - turret.AimRange) < 0.15f,
+                "moving pawn aim follows its interpolated subcell position");
+            if (Mathf.Abs(turret.AimRange - Mathf.Round(turret.AimRange)) < 0.4f &&
+                Mathf.Abs(Mathf.DeltaAngle(turret.AimHeading, 90f)) < 0.01f)
+                Check(turret.SpotCell == East(Mathf.RoundToInt(turret.AimRange)),
+                    "the glower follows the reached aim cell while the pawn crosses a cell boundary");
+            subcellAimSamples++;
         }
 
         private static void ResumeSweep()

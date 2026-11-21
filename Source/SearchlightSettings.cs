@@ -6,11 +6,15 @@ namespace DirectedSearchlights
     public sealed class SearchlightSettings : ModSettings
     {
         private float diameter = 4f;
+        private DetectionAlertMode defaultAlertMode = DetectionAlertMode.Visual;
         public static float Diameter => SearchlightsMod.Settings?.diameter ?? 4f;
+        public static DetectionAlertMode DefaultAlertMode =>
+            SearchlightsMod.Settings?.defaultAlertMode ?? DetectionAlertMode.Visual;
 
         public override void ExposeData()
         {
             Scribe_Values.Look(ref diameter, "beamDiameter", 4f);
+            Scribe_Values.Look(ref defaultAlertMode, "defaultAlertMode", DetectionAlertMode.Visual);
             diameter = float.IsNaN(diameter) ? 4f : Mathf.Clamp(diameter, 2f, 6f);
         }
 
@@ -20,6 +24,13 @@ namespace DirectedSearchlights
             listing.Begin(bounds);
             listing.Label("DS_BeamDiameter".Translate(diameter.ToString("0.0")));
             diameter = Mathf.Round(listing.Slider(diameter, 2f, 6f) * 10f) / 10f;
+            listing.Gap();
+            if (listing.ButtonTextLabeled("DS_DefaultAlertMode".Translate(),
+                (CoordinationOptions.AlertModeKey + defaultAlertMode).Translate()))
+            {
+                CoordinationOptions.Show<DetectionAlertMode>(CoordinationOptions.AlertModeKey,
+                    choice => choice == defaultAlertMode, choice => defaultAlertMode = choice);
+            }
             listing.End();
         }
     }

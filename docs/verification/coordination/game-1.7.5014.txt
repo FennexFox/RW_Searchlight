@@ -1,0 +1,23 @@
+harness created
+fresh map=(250, 1, 250); origin=(95, 0, 125)
+spread three-by-three; settledTicks=22; ids=18788,18794,18801
+shared redistribution, manual collision/release, power and destruction passed
+two consecutive scans required for a new alternative after the hold
+visibility precedes occupancy; roof invalidation passed
+independent ids=18868/18875; sweep range 60/61 passed
+perf; lamps=1; ticks=120; elapsedMs=1996; scans=4; snapshots=1; candidateEvaluations=3; settledTicks=11; notifications=0
+perf; lamps=10; ticks=120; elapsedMs=1995; scans=40; snapshots=40; candidateEvaluations=30; settledTicks=21; notifications=0
+perf; lamps=50; ticks=120; elapsedMs=1995; scans=200; snapshots=120; candidateEvaluations=150; settledTicks=30; notifications=0
+map isolation; home Zeiph/Zeiph operating=True scans=3; away Cowboy/Cowboy operating=True scans=3; home hostile ids=20166; away hostile ids=20174
+two-map view switching and removal cleared reservations, markers and notification locations
+Off lamp locked to a different pawn preserves continuous detectability across cooldown
+ten-lamp deduplication, no repeat after power/continuous tracking, 60/180/119/120-tick boundaries passed
+batch of two sends one real message with static cell targets and one opt-in sound; fog/Off clear markers
+save fixture; alert tick=4780; pawn=20256; reservations=2
+PASS fresh
+harness created
+harness created
+harness created
+harness created
+current save/load restores policies, manual references and reservations, clears markers, and respects ticks 2499/2500 of the persisted cooldown
+PASS current
