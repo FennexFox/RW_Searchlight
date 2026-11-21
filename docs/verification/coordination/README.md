@@ -94,7 +94,10 @@ loss and restoration.
 ## Reproduction
 
 Run from the mod root in PowerShell. Set `$game` to the installation being
-tested. The mod must be present in that installation's Mods folder.
+tested. Install or link this checkout in that installation's Mods folder.
+After building, confirm that the installed path contains the rebuilt DLL for
+that game version before running the coordination tests. The runner stages
+only its harness and does not verify which searchlight DLL the game loads.
 
 ```powershell
 .\build.ps1 -RimWorldPath $game
