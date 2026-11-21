@@ -6,9 +6,9 @@ Requested on 2026-11-19: write implementation plans for the two proposed updates
 1. Detection alerts and target sharing between searchlights.
 2. Actual game illumination restricted to the cells reached by the beam.
 
-Status: **planned, not implemented**. Defaults below are design proposals for
-implementation and playtesting, not measured balance claims. Existing MVP
-acceptance remains recorded in `../searchlights/` and `../../verification/`.
+Update 1 is implemented. Its [coordination record](../../verification/coordination/README.md)
+tracks the game builds, fixtures and observed results. Update 2 is planned.
+Existing MVP acceptance remains recorded in `../searchlights/` and `../../verification/`.
 
 ## Strategy
 

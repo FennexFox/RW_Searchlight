@@ -3,7 +3,7 @@
   <name>Searchlight Runtime Harness</name>
   <author>Searchlight tests</author>
   <packageId>searchlight.runtimeharness</packageId>
-  <supportedVersions><li>1.6</li></supportedVersions>
+  <supportedVersions><li>1.6</li><li>1.7</li></supportedVersions>
   <loadAfter><li>DirectedSearchlights.Searchlight</li></loadAfter>
   <description>Isolated, test-only runtime assertions. Do not enable in a normal game.</description>
 </ModMetaData>

@@ -4,7 +4,12 @@ This page records observed results, test limitations, and reproduction commands.
 Measurements are labeled as observations; they are not claims of controlled
 performance or gameplay-balance testing.
 
-## Current status: 2026-11-18
+## Target sharing and detection alerts
+
+The [coordination verification record](coordination/README.md) covers the
+post-MVP packages, including save migration and the night-raid fixture.
+
+## MVP results recorded on 2026-11-18
 
 **Core MVP acceptance is complete for RimWorld 1.6.** The latest scenario
 run passed the original mode/range/door/roof checks and the additional live

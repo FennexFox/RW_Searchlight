@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
+  <DS_PowerMode>전원 모드: {0}</DS_PowerMode>
+  <DS_PowerModeDesc>누를 때마다 상시 작동 → 야간에만 작동 → 적 감지 시 작동 순서로 전환합니다.</DS_PowerModeDesc>
+  <DS_AlwaysOn>상시 작동</DS_AlwaysOn>
+  <DS_AlwaysOnDesc>전원이 공급되고 스위치가 켜져 있으면 선택한 조사 방식으로 작동합니다.</DS_AlwaysOnDesc>
+  <DS_NightOnly>야간에만 작동</DS_NightOnly>
+  <DS_NightOnlyDesc>낮에는 소등하고 적 감지와 전력 소비를 중지합니다. 기본 주간 시간은 현지 시각 06:00~18:00이며, Atmosphere Overhaul 사용 시에는 해당 지역의 일출부터 일몰까지입니다.</DS_NightOnlyDesc>
+  <DS_EnemyOnly>적 감지 시 작동</DS_EnemyOnly>
+  <DS_EnemyOnlyDesc>전원이 공급되고 스위치가 켜져 있으면 낮과 밤 모두 적을 탐색합니다. 적을 감지한 동안에만 전력을 소비하고 선택한 조사 방식으로 비춥니다.</DS_EnemyOnlyDesc>
   <DS_ModeFixed>고정</DS_ModeFixed>
   <DS_ModeSweep>회전 조사</DS_ModeSweep>
   <DS_ModeAutomatic>자동</DS_ModeAutomatic>
@@ -11,4 +19,16 @@
   <DS_SweepEditorHelp>마우스: 방향 · 가운데 클릭: 각도 조절 · 좌클릭: 확정 · 우클릭/Esc: 취소 · Ctrl: 조명 가능 범위</DS_SweepEditorHelp>
   <DS_SweepEditorValues>방향: {0}° · 회전 각도: {1}°</DS_SweepEditorValues>
   <DS_SweepWidthHelp>탐조등에 가까이 움직이면 좁아지고 멀리 움직이면 넓어집니다. 가운데 클릭: 각도 고정 · 좌클릭: 확정 · 우클릭/Esc: 취소 · Ctrl: 조명 가능 범위</DS_SweepWidthHelp>
+  <DS_AssignmentPolicy>목표 공유</DS_AssignmentPolicy>
+  <DS_AssignmentPolicyDesc>선택한 탐조등이 회전 조사 및 자동 모드에서 목표를 선택하는 방식을 설정합니다. 독립은 기존 목표 선택 방식을 사용합니다. 분산은 빛이 닿는 목표 중 다른 탐조등이 선택하지 않은 목표를 우선합니다. 집중은 여러 탐조등이 같은 목표를 우선할 수 있습니다.</DS_AssignmentPolicyDesc>
+  <DS_PolicyIndependent>독립</DS_PolicyIndependent>
+  <DS_PolicySpread>분산</DS_PolicySpread>
+  <DS_PolicyConcentrate>집중</DS_PolicyConcentrate>
+  <DS_DetectionAlerts>탐지 알림</DS_DetectionAlerts>
+  <DS_DetectionAlertsDesc>선택한 탐조등이 회전 조사 및 자동 모드에서 적을 새로 탐지했을 때 알리는 방식을 설정합니다.</DS_DetectionAlertsDesc>
+  <DS_AlertModeOff>끄기</DS_AlertModeOff>
+  <DS_AlertModeVisual>화면 알림</DS_AlertModeVisual>
+  <DS_AlertModeVisualAndSound>화면 및 소리 알림</DS_AlertModeVisualAndSound>
+  <DS_DetectedHostile>탐조등이 적 한 명을 탐지했습니다.</DS_DetectedHostile>
+  <DS_DetectedHostiles>탐조등이 적 {0}명을 탐지했습니다.</DS_DetectedHostiles>
 </LanguageData>
