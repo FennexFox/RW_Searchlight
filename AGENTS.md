@@ -29,15 +29,19 @@ The second command illustrates an alternate installation. For changes to shared 
 
 ## Choose verification by change
 
+Set `$game` to the same RimWorld installation used for the build.
+
 | Change | Check from the mod root |
 | --- | --- |
 | Beam math or grid traversal | `dotnet run --project Tests/Geometry/GeometryTests.csproj -c Release` |
-| Tracking, standby, power or save/load | `Tests/Scenarios/Run-Scenarios.ps1` |
-| Target sharing, reservations or alerts | `Tests/Coordination/Run-Coordination.ps1` |
-| Rendered beam shape or clipping | `Tests/Visual/Run-Visual.ps1` |
-| CE lighting or night vision | `Tests/Optics/Run-Optics.ps1` with a compatible CE installation |
-| Game startup or optional-mod integration | `Tests/Runtime/Run-Runtime.ps1` with the relevant `-Case` |
+| Tracking, standby, power or save/load | `Tests/Scenarios/Run-Scenarios.ps1 -RimWorldPath $game` |
+| Target sharing, reservations or alerts | `Tests/Coordination/Run-Coordination.ps1 -RimWorldPath $game` |
+| Rendered beam shape or clipping | `Tests/Visual/Run-Visual.ps1 -RimWorldPath $game` |
+| CE lighting or night vision | `Tests/Optics/Run-Optics.ps1 -RimWorldDir $game` with a compatible CE installation |
+| Game startup or optional-mod integration | `Tests/Runtime/Run-Runtime.ps1 -RimWorldDir $game` with the relevant `-Case` |
 | Packaged assembly, Defs or textures | `Tests/VerifyPackage.ps1 -GameVersion 1.6` and `-GameVersion 1.7` |
+
+For the coordination check, install or link this rebuilt checkout in the selected game's Mods folder before launching. The coordination runner stages its test harness only and does not verify the loaded mod DLL. Check the installation path and matching versioned DLL before relying on a pass.
 
 Use the existing harness runners and their isolated save-data profiles. Keep the player's saves, active mod list and configuration intact. Report the commands, game version, relevant mod versions and observed results. Identify any target that could only be built or could not be exercised.
 
