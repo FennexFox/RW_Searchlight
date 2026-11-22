@@ -1,7 +1,7 @@
-using System.Collections.Generic;
-using RimWorld;
 using System;
-using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
+using RimWorld;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -22,6 +22,9 @@ namespace DirectedSearchlights
         private static volatile bool available;
         private static string status = "Not initialized.";
         private static MethodInfo unpatchMethod;
+        private static Action releaseHooks;
+        internal static bool Failed => initializationAttempted && !available;
+        internal static bool MissingHarmony { get; private set; }
 
         internal static bool Available
         {
@@ -56,39 +59,43 @@ namespace DirectedSearchlights
 
             GlowGrid glowGrid = map.glowGrid;
             if (glowGrid == null) throw new InvalidOperationException("Map has no GlowGrid.");
-            MapState state = States.GetValue(glowGrid, _ => new MapState(map));
-            lock (state.SyncRoot)
-            {
-                bool hadPrevious = state.Intensities.TryGetValue(index, out byte previous);
-                if (intensity == 0)
-                {
-                    if (!hadPrevious) return;
-                    state.Intensities.TryRemove(index, out _);
-                }
-                else
-                {
-                    if (hadPrevious && previous == intensity) return;
-                    state.Intensities[index] = intensity;
-                }
+            var state = GetState(map);
+            lock (state) state.Set(index, intensity);
+        }
 
-                state.MarkDirty(index);
+        // The simulation owns the change buffer. Queries see a complete published pose.
+        internal static void SetCells(Map map, Dictionary<int, byte> changes)
+        {
+            if (changes.Count == 0) return;
+            var state = GetState(map);
+            lock (state)
+            {
+                foreach (var entry in changes) state.Set(entry.Key, entry.Value);
             }
         }
 
-        /// <summary>Removes this map's contributions and dirties their cells.</summary>
+        private static MapState GetState(Map map) => States.TryGetValue(map.glowGrid, out var state)
+            ? state : AddState(map);
+
+        private static MapState AddState(Map map) => States.GetValue(map.glowGrid, _ => new MapState(map));
+
         internal static void ClearMap(Map map)
         {
-            if (map == null || map.glowGrid == null || !States.TryGetValue(map.glowGrid, out MapState state)) return;
-
-            lock (state.SyncRoot)
+            if (map?.glowGrid == null || !States.TryGetValue(map.glowGrid, out var state)) return;
+            lock (state)
             {
-                foreach (KeyValuePair<int, byte> contribution in state.Intensities)
-                {
-                    state.MarkDirty(contribution.Key);
-                }
+                foreach (int index in state.Intensities.Keys) state.Pending.Add(index);
                 state.Intensities.Clear();
             }
         }
+
+        internal static bool MeasureFlush { get; set; }
+        internal static long FlushTicks(Map map) =>
+            States.TryGetValue(map.glowGrid, out var state) ? state.FlushTicks : 0L;
+
+        internal static bool HasMapState(Map map) => States.TryGetValue(map.glowGrid, out _);
+
+        internal static void ForgetMap(Map map) => States.Remove(map.glowGrid);
 
         private static void EnsureInitialized()
         {
@@ -96,8 +103,6 @@ namespace DirectedSearchlights
             lock (InitializeLock)
             {
                 if (initializationAttempted) return;
-                initializationAttempted = true;
-
                 try
                 {
                     string gameVersion = VersionControl.CurrentVersionString ?? string.Empty;
@@ -112,6 +117,7 @@ namespace DirectedSearchlights
                     Assembly harmonyAssembly = FindHarmonyAssembly();
                     if (harmonyAssembly == null)
                     {
+                        MissingHarmony = true;
                         SetStatus("Unavailable: optional Harmony (0Harmony) is not loaded; vanilla lighting is unchanged.");
                         return;
                     }
@@ -175,14 +181,40 @@ namespace DirectedSearchlights
                         throw;
                     }
 
+                    releaseHooks = () =>
+                    {
+                        unpatchMethod.Invoke(harmony, new object[] { getAccumulatedGlow, postfixMethod });
+                        unpatchMethod.Invoke(harmony, new object[] { updateFirst, prefixMethod });
+                    };
                     available = true;
                     SetStatus("Available: RimWorld " + (is16 ? "1.6" : "1.7") +
-                        " hooks GlowGrid.GetAccumulatedGlowAt(Int32, Boolean); changed cells use DirtyCell(IntVec3).");
+                        " hooks GlowGrid.GetAccumulatedGlowAt(Int32, Boolean); changed cells invalidate ground meshes and glow listeners.");
                 }
                 catch (Exception exception)
                 {
                     SetStatus("Unavailable: could not install the optional GlowGrid hooks: " + Unwrap(exception).Message);
                 }
+                finally { initializationAttempted = true; }
+            }
+        }
+
+        internal static void Release()
+        {
+            lock (InitializeLock)
+            {
+                if (!available) return;
+                available = false;
+                try
+                {
+                    releaseHooks();
+                    initializationAttempted = false;
+                }
+                catch (Exception ex)
+                {
+                    SetStatus("Could not remove lighting hooks: " + Unwrap(ex).Message);
+                    Log.Warning("[Directed Searchlights] " + status);
+                }
+                finally { releaseHooks = null; }
             }
         }
 
@@ -241,32 +273,41 @@ namespace DirectedSearchlights
 
         private static void AccumulatedGlowPostfix(object __instance, int index, ref Color32 __result)
         {
-            if (__instance == null || index < 0 ||
-                !States.TryGetValue((GlowGrid)__instance, out MapState state) ||
-                (uint)index >= (uint)state.Map.cellIndices.NumGridCells ||
-                state.Map.terrainGrid.TerrainAt(index).exposesToVacuum ||
-                !state.Intensities.TryGetValue(index, out byte intensity))
-            {
-                return;
-            }
-
-            // Max-combine raw RGB while preserving vanilla alpha and overlight.
+            if (!available || !States.TryGetValue((GlowGrid)__instance, out var state)) return;
+            byte intensity;
+            lock (state)
+                if (!state.Intensities.TryGetValue(index, out intensity)) return;
+            if (state.Map.terrainGrid.TerrainAt(index).exposesToVacuum) return;
             if (__result.r < intensity) __result.r = intensity;
             if (__result.g < intensity) __result.g = intensity;
             if (__result.b < intensity) __result.b = intensity;
         }
 
-        private static void GlowGridUpdatePrefix(object __instance)
+        private static void GlowGridUpdatePrefix(GlowGrid __instance)
         {
-            if (__instance == null || !States.TryGetValue((GlowGrid)__instance, out MapState state)) return;
-
-            while (state.PendingDirty.TryDequeue(out int index))
+            if (!States.TryGetValue(__instance, out var state)) return;
+            lock (state)
             {
-                state.PendingDirtySet.TryRemove(index, out _);
-                if ((uint)index < (uint)state.Map.cellIndices.NumGridCells)
+                if (state.Pending.Count == 0 || state.Draining.Count != 0) return;
+                (state.Draining, state.Pending) = (state.Pending, state.Draining);
+            }
+            long start = MeasureFlush ? Stopwatch.GetTimestamp() : 0L;
+            try
+            {
+                var map = state.Map;
+                foreach (int index in state.Draining)
                 {
-                    state.Map.glowGrid.DirtyCell(state.Map.cellIndices.IndexToCell(index));
+                    var cell = map.cellIndices.IndexToCell(index);
+                    // Only our read-side overlay changed. Vanilla's flood buffers
+                    // remain valid. Shared corner vertices can lie in another section.
+                    map.mapDrawer.MapMeshDirty(cell, MapMeshFlagDefOf.GroundGlow, true, false);
+                    map.events.Notify_GlowChanged(cell);
                 }
+            }
+            finally
+            {
+                state.Draining.Clear();
+                if (start != 0L) state.FlushTicks += Stopwatch.GetTimestamp() - start;
             }
         }
 
@@ -285,19 +326,20 @@ namespace DirectedSearchlights
         private sealed class MapState
         {
             internal readonly Map Map;
-            internal readonly object SyncRoot = new object();
-            internal readonly ConcurrentDictionary<int, byte> Intensities = new ConcurrentDictionary<int, byte>();
-            internal readonly ConcurrentDictionary<int, byte> PendingDirtySet = new ConcurrentDictionary<int, byte>();
-            internal readonly ConcurrentQueue<int> PendingDirty = new ConcurrentQueue<int>();
+            internal readonly Dictionary<int, byte> Intensities = new Dictionary<int, byte>();
+            internal HashSet<int> Pending = new HashSet<int>();
+            internal HashSet<int> Draining = new HashSet<int>();
+            internal long FlushTicks;
 
-            internal MapState(Map map)
-            {
-                Map = map;
-            }
+            internal MapState(Map map) { Map = map; }
 
-            internal void MarkDirty(int index)
+            internal void Set(int index, byte intensity)
             {
-                if (PendingDirtySet.TryAdd(index, 0)) PendingDirty.Enqueue(index);
+                Intensities.TryGetValue(index, out byte previous);
+                if (intensity == previous) return;
+                if (intensity == 0) Intensities.Remove(index);
+                else Intensities[index] = intensity;
+                Pending.Add(index);
             }
         }
     }
