@@ -4,6 +4,12 @@ This page records observed results, test limitations, and reproduction commands.
 Measurements are labeled as observations; they are not claims of controlled
 performance or gameplay-balance testing.
 
+## Per-cell beam illumination
+
+The [lighting verification record](illumination/README.md) covers vanilla
+ground glow, the rendered mesh, CE, overlapping lamps, old saves, and tick
+time for both lighting providers.
+
 ## Target sharing and detection alerts
 
 The [coordination verification record](coordination/README.md) covers the

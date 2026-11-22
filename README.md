@@ -102,8 +102,9 @@ diameter, the beam is about two cells wide where it is blocked halfway along a
 60-cell aim.
 
 In Mod Settings, **Lighting in this save** selects how a searchlight illuminates
-the ground. Existing saves use **Endpoint only**. With Harmony enabled, select
-**Reached beam cells** to illuminate intermediate cells as the head pans.
+the ground. New games and existing saves default to **Endpoint only**. With
+Harmony enabled, select **Reached beam cells** to illuminate intermediate
+cells as the head pans.
 Each cell's center must lie inside the beam and have a clear path from the
 lens. A wall or closed door blocks light at its near face. A pawn crossing the
 beam can gain light independently of the light's selected target. Where beams
