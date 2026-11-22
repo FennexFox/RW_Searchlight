@@ -101,14 +101,23 @@ zoom: it remains based on the aim distance. With the default four-cell
 diameter, the beam is about two cells wide where it is blocked halfway along a
 60-cell aim.
 
-The beam is rendered as an overlay. Actual game illumination comes from a
-vanilla light source placed at the reached endpoint; its physical radius is
+In Mod Settings, **Lighting in this save** selects how a searchlight illuminates
+the ground. Existing saves use **Endpoint only**. With Harmony enabled, select
+**Reached beam cells** to illuminate intermediate cells as the head pans.
+Each cell's center must lie inside the beam and have a clear path from the
+lens. A wall or closed door blocks light at its near face. A pawn crossing the
+beam can gain light independently of the light's selected target. Where beams
+overlap, the stronger contribution applies. Changing the setting affects every
+map in the current save.
+
+In **Endpoint only**, actual illumination comes from a vanilla light source
+placed at the reached endpoint. Its physical radius is
 half the beam width at that point. With the default setting, the endpoint
 radius is about 2 cells at full range and about 1 cell when blocked halfway
 along a 60-cell aim. A minimum radius of 0.5 cells is used when the beam is
 blocked close to the building so the cell center is illuminated.
 
-The beam itself does not light intermediate cells. The endpoint light can
+In endpoint mode, intermediate cells outside the endpoint radius remain dark. The endpoint light can
 illuminate cells outside the visible beam near its endpoint because vanilla
 lighting spreads radially. Combat Extended (CE) combines vanilla lighting with
 the shooter's night-vision capability. The documented nighttime combat-glow
@@ -116,8 +125,8 @@ cap of 0.5 was verified with CE 16.7.4.0.
 
 Power use is 150 W for the turret and 200 W for the tower. These are three and
 four times the researched vanilla floodlight's 50 W, respectively. The added
-cost is for long-range tracking and the tower's additional detection ability,
-not for a stronger endpoint light. See [the power comparison](docs/verification/power-balance.md).
+cost is for long-range tracking and the tower's additional detection ability.
+See [the power comparison](docs/verification/power-balance.md).
 
 The beam has a rounded visual falloff beyond the aim point. At the
 default diameter, the visible cap can extend up to 2 cells past the aim point;

@@ -316,10 +316,15 @@ namespace DirectedSearchlights
             return Mathf.Atan2(cell.x - Position.x, cell.z - Position.z) * Mathf.Rad2Deg;
         }
 
-        private void RefreshBeamAndSpot()
+        internal void RefreshBeamAndSpot()
         {
             if (!IsOperating || beam == null) { ClearVisuals(); return; }
             beam.Update(Map, Position, aimHeading, aimRange, SearchlightSettings.Diameter);
+            if (searchlights.PreciseLighting)
+            {
+                searchlights.Lighting.Publish(this, beam);
+                return;
+            }
             IntVec3 cell = beam.CenterCell;
             if (!cell.IsValid) { RemoveSpot(); return; }
             if (lightSpot == null || lightSpot.Destroyed)
@@ -343,7 +348,7 @@ namespace DirectedSearchlights
             }
         }
 
-        private void RemoveSpot()
+        internal void RemoveSpot()
         {
             if (lightSpot != null && !lightSpot.Destroyed)
                 lightSpot.Destroy(DestroyMode.Vanish);
@@ -352,6 +357,7 @@ namespace DirectedSearchlights
 
         private void ClearVisuals()
         {
+            searchlights?.WithdrawField(this);
             RemoveSpot();
             beam?.Update(Map, Position, aimHeading, 0f, SearchlightSettings.Diameter);
         }

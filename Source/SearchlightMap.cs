@@ -13,6 +13,8 @@ namespace DirectedSearchlights
         private readonly List<Building_Searchlight> lights = new List<Building_Searchlight>();
         private readonly TargetCoordinator targets;
         private readonly DetectionAlerts alerts;
+        private SearchlightLightingGame lightingGame;
+        private BeamLightingMap lighting;
         private bool restoring;
         private readonly bool usesAtmosphereOverhaul;
         private int lastSolarTick = int.MinValue;
@@ -46,6 +48,21 @@ namespace DirectedSearchlights
         }
 
         internal int ReservationCount => targets.ReservationCount;
+        internal bool PreciseLighting => (lightingGame ??= Current.Game.GetComponent<SearchlightLightingGame>())?.CurrentMode
+            == SearchlightLightingMode.PreciseField;
+        internal BeamLightingMap Lighting => lighting ??= new BeamLightingMap(map);
+        internal void WithdrawField(Building_Searchlight light) => lighting?.Withdraw(light);
+
+        internal void WithdrawLighting()
+        {
+            lighting?.Clear();
+            foreach (Building_Searchlight light in lights) light.RemoveSpot();
+        }
+
+        internal void RestoreLighting()
+        {
+            foreach (Building_Searchlight light in lights) light.RefreshBeamAndSpot();
+        }
         internal int ReservationsFor(Pawn pawn) => targets.ReservationsFor(pawn);
         internal int CandidateSnapshotBuildCount => targets.CandidateSnapshotBuildCount;
         internal int CandidateEvaluationCount => targets.CandidateEvaluationCount;
@@ -80,6 +97,7 @@ namespace DirectedSearchlights
 
         public void Unregister(Building_Searchlight light)
         {
+            WithdrawField(light);
             targets.ChangeLock(light, null, -1);
             targets.ResetRedistribution(light);
             lights.Remove(light);
@@ -125,6 +143,8 @@ namespace DirectedSearchlights
 
         public override void MapRemoved()
         {
+            WithdrawLighting();
+            LightingIntegration.ForgetMap(map);
             if (obstacleCallbacks != null)
             {
                 obstacleCallbacks.onThingAdded -= EdificeChanged;

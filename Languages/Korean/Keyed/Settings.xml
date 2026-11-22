@@ -1,4 +1,9 @@
 <LanguageData>
   <DS_BeamDiameter>조준 거리에서의 빔 지름: {0}타일</DS_BeamDiameter>
   <DS_DefaultAlertMode>새 탐조등의 탐지 알림</DS_DefaultAlertMode>
+  <DS_LightingMode>이 저장 게임의 조명 방식</DS_LightingMode>
+  <DS_LegacyEndpoint>빔 끝만 조명</DS_LegacyEndpoint>
+  <DS_PreciseField>빔이 닿는 칸 조명</DS_PreciseField>
+  <DS_LightingRequiresHarmony>빔 끝만 비추고 있습니다. 빔이 닿는 칸을 비추려면 Harmony를 활성화하세요.</DS_LightingRequiresHarmony>
+  <DS_PreciseUnavailable>빔 끝만 비추고 있습니다. 현재 설치 환경에서는 칸 단위 조명을 사용할 수 없습니다. 자세한 원인은 게임 로그에서 확인하세요.</DS_PreciseUnavailable>
 </LanguageData>
