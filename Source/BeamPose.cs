@@ -27,6 +27,12 @@ namespace DirectedSearchlights
         internal readonly float BodyLength;
         internal readonly float Spread;
         internal readonly bool IsValid;
+        internal readonly bool ScanXMajor;
+        internal readonly int ScanMajorSign;
+        internal readonly int ScanMajorSteps;
+        internal readonly float ScanMajorMagnitude;
+        internal readonly float ScanMinorComponent;
+        internal readonly float ScanMinorHalfSpan;
 
         internal BeamPose(int originX, int originZ, float heading, float range, float diameter)
         {
@@ -47,12 +53,47 @@ namespace DirectedSearchlights
             BodyLength = Range - LensForward;
             IsValid = Range > 0f && BodyLength > 0f;
             Spread = BodyLength > 0f ? (CapDepth - LensHalfWidth) / BodyLength : 0f;
+
+            ScanXMajor = Math.Abs(ForwardX) >= Math.Abs(ForwardZ);
+            float majorComponent = ScanXMajor ? ForwardX : ForwardZ;
+            ScanMajorSign = majorComponent < 0f ? -1 : 1;
+            ScanMajorMagnitude = Math.Abs(majorComponent);
+            ScanMinorComponent = ScanXMajor ? ForwardZ : ForwardX;
+            ScanMajorSteps = (int)Math.Ceiling(Range);
+            float maximumHalfWidth = Math.Max(LensHalfWidth, CapDepth);
+            ScanMinorHalfSpan = ScanMajorMagnitude > 0f
+                ? maximumHalfWidth * (1f + LaneTolerance) / ScanMajorMagnitude + 0.0001f
+                : Range;
         }
 
         internal float WidthAtDepth(float depth)
         {
             float clampedDepth = Math.Max(0f, Math.Min(BodyLength, depth));
             return 2f * (LensHalfWidth + clampedDepth * Spread);
+        }
+
+        /// <summary>
+        /// Return a conservative, tight minor-axis interval for one forward
+        /// step on the dominant grid axis. Every covered cell center lies in
+        /// one of these intervals; TryGetLane remains the exact final test.
+        /// </summary>
+        internal void GetScanRowBounds(int forwardStep, out bool xMajor, out int relativeMajor,
+            out int minimumRelativeMinor, out int maximumRelativeMinor)
+        {
+            xMajor = ScanXMajor;
+            relativeMajor = forwardStep * ScanMajorSign;
+            float centerMinor = forwardStep * ScanMinorComponent / ScanMajorMagnitude;
+            minimumRelativeMinor = (int)Math.Floor(centerMinor - ScanMinorHalfSpan);
+            maximumRelativeMinor = (int)Math.Ceiling(centerMinor + ScanMinorHalfSpan);
+        }
+
+        internal bool IsPotentialBlockerCell(int relativeX, int relativeZ)
+        {
+            if (!IsValid) return false;
+            float along = relativeX * ForwardX + relativeZ * ForwardZ;
+            float across = relativeX * RightX + relativeZ * RightZ;
+            float slope = CapDepth / Range;
+            return along >= -1f && Math.Abs(across) <= Math.Max(0f, along) * slope + 1f;
         }
 
         /// <summary>Return the physical lane and forward depth for a point center-relative to the building.</summary>
@@ -86,6 +127,15 @@ namespace DirectedSearchlights
             float relativeX = cellX - OriginX;
             float relativeZ = cellZ - OriginZ;
             if (!TryGetLane(relativeX, relativeZ, out lane, out depth)) return false;
+
+            return GetSampleRay(relativeX, relativeZ, lane,
+                out rayX, out rayZ, out rayLength, out offsetX, out offsetZ);
+        }
+
+        internal bool GetSampleRay(float relativeX, float relativeZ, float lane,
+            out float rayX, out float rayZ, out float rayLength, out float offsetX, out float offsetZ)
+        {
+            rayX = rayZ = rayLength = offsetX = offsetZ = 0f;
 
             GetLaneRay(lane, out offsetX, out offsetZ, out _, out _);
             float toCellX = relativeX - offsetX;

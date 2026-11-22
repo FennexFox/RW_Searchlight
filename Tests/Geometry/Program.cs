@@ -21,6 +21,46 @@ static class Program
             out lastX, out lastZ);
     }
 
+    static HashSet<(int, int)> ScanCandidates(BeamPose pose)
+    {
+        var cells = new HashSet<(int, int)>();
+        for (int step = 0; step <= pose.ScanMajorSteps; step++)
+        {
+            pose.GetScanRowBounds(step, out bool xMajor, out int major, out int minMinor, out int maxMinor);
+            for (int minor = minMinor; minor <= maxMinor; minor++)
+                cells.Add(xMajor ? (major, minor) : (minor, major));
+        }
+        return cells;
+    }
+
+    static bool ScanContainsEveryCoveredCell(BeamPose pose, HashSet<(int, int)> candidates)
+    {
+        int radius = pose.ScanMajorSteps;
+        for (int dx = -radius; dx <= radius; dx++)
+        for (int dz = -radius; dz <= radius; dz++)
+            if (pose.TryGetLane(dx, dz, out _, out _) && !candidates.Contains((dx, dz))) return false;
+        return true;
+    }
+
+    static bool BlockerBoundsContainEverySampleRay(BeamPose pose, HashSet<(int, int)> candidates)
+    {
+        foreach ((int x, int z) in candidates)
+        {
+            if (!pose.TryGetLane(x, z, out float lane, out _)) continue;
+            if (!pose.GetSampleRay(x, z, lane, out float rayX, out float rayZ,
+                out float rayLength, out float offsetX, out float offsetZ)) return false;
+            bool allTouchedCellsAreRelevant = true;
+            BeamGrid.Trace(0, 0, rayX, rayZ, rayLength, (cellX, cellZ) =>
+            {
+                if ((cellX != 0 || cellZ != 0) && !pose.IsPotentialBlockerCell(cellX, cellZ))
+                    allTouchedCellsAreRelevant = false;
+                return true;
+            }, out _, out _, offsetX, offsetZ);
+            if (!allTouchedCellsAreRelevant) return false;
+        }
+        return true;
+    }
+
     static void Main()
     {
         int x, z;
@@ -166,6 +206,39 @@ static class Program
             "default focus is calibrated to raw RGB 36 and narrower beams are no darker");
         Check(edge > 0 && edge < focusCenter,
             "the physical beam edge retains nonzero light intensity");
+
+        float[] scanHeadings = { 0f, 22.5f, 45f, 67.5f, 90f, 112.5f, 135f, 157.5f,
+            180f, 202.5f, 225f, 247.5f, 270f, 292.5f, 315f, 337.5f };
+        float[] scanRanges = { 2f, 5f, 10f, 30f, 60f };
+        float[] scanDiameters = { 2f, 4f, 6f };
+        for (int h = 0; h < scanHeadings.Length; h++)
+        for (int r = 0; r < scanRanges.Length; r++)
+        for (int d = 0; d < scanDiameters.Length; d++)
+        {
+            var scanPose = new BeamPose(0, 0, scanHeadings[h], scanRanges[r], scanDiameters[d]);
+            HashSet<(int, int)> candidates = ScanCandidates(scanPose);
+            Check(ScanContainsEveryCoveredCell(scanPose, candidates),
+                "dominant-axis scan bounds cover exhaustive footprint at heading " + scanHeadings[h] +
+                ", range " + scanRanges[r] + ", diameter " + scanDiameters[d]);
+        }
+        var diagonalScanPose = new BeamPose(0, 0, 45f, 60f, 6f);
+        int diagonalScanCount = ScanCandidates(diagonalScanPose).Count;
+        int diagonalSquareCount = (2 * diagonalScanPose.ScanMajorSteps + 1) *
+            (2 * diagonalScanPose.ScanMajorSteps + 1);
+        Check(diagonalScanCount < diagonalSquareCount / 4,
+            "dominant-axis scan avoids the large diagonal square bounding box");
+        float[] blockerHeadings = { 0f, 22.5f, 45f, 67.5f, 90f, 135f, 225f, 315f };
+        float[] blockerRanges = { 5f, 30f, 60f };
+        for (int h = 0; h < blockerHeadings.Length; h++)
+        for (int r = 0; r < blockerRanges.Length; r++)
+        for (int d = 0; d < scanDiameters.Length; d++)
+        {
+            var blockerPose = new BeamPose(0, 0, blockerHeadings[h], blockerRanges[r], scanDiameters[d]);
+            HashSet<(int, int)> candidates = ScanCandidates(blockerPose);
+            Check(BlockerBoundsContainEverySampleRay(blockerPose, candidates),
+                "renderer clipping bound contains every sampled ray at heading " + blockerHeadings[h] +
+                ", range " + blockerRanges[r] + ", diameter " + scanDiameters[d]);
+        }
 
         if (failures != 0) Environment.Exit(1);
         Console.WriteLine("Geometry checks passed.");

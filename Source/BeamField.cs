@@ -27,6 +27,8 @@ namespace DirectedSearchlights
         private CellRect obstacleBounds;
         private int cachedEdificeRevision;
         private readonly List<IntVec3> obstacles = new List<IntVec3>();
+        private readonly List<IntVec3> relevantBlockers = new List<IntVec3>();
+        private readonly List<IntVec3> previousRelevantBlockers = new List<IntVec3>();
         private readonly List<IntVec3> retainedRayEdifices = new List<IntVec3>();
         private Map retainedMap;
         private IntVec3 retainedFrom, retainedTo;
@@ -44,9 +46,14 @@ namespace DirectedSearchlights
         private readonly List<int> triangles = new List<int>();
         private readonly Func<int, int, bool> currentMapTransparency;
         private BeamPose pose;
+        private BeamPose sampledPose;
+        private Map sampledMap;
+        private bool hasSampleSnapshot;
+        private bool hasPotentialBlockingLane;
 
         public IntVec3 CenterCell { get; private set; } = IntVec3.Invalid;
         internal int Revision { get; private set; }
+        internal int SampleRevision { get; private set; }
 
         public BeamField()
         {
@@ -120,28 +127,32 @@ namespace DirectedSearchlights
             destination.Clear();
             if (!hasReachedBounds || map == null || !pose.IsValid) return;
 
-            int minX = Mathf.Max(0, reachedBounds.minX);
-            int maxX = Mathf.Min(map.Size.x - 1, reachedBounds.maxX);
-            int minZ = Mathf.Max(0, reachedBounds.minZ);
-            int maxZ = Mathf.Min(map.Size.z - 1, reachedBounds.maxZ);
-            if (minX > maxX || minZ > maxZ) return;
-
-            for (int x = minX; x <= maxX; x++)
-            for (int z = minZ; z <= maxZ; z++)
+            bool traceForBlockers = hasPotentialBlockingLane;
+            for (int forwardStep = 0; forwardStep <= pose.ScanMajorSteps; forwardStep++)
             {
-                if (!pose.TryGetSampleRay(x, z, out float lane, out float depth,
-                    out float rayX, out float rayZ, out float rayLength, out float offsetX, out float offsetZ))
-                    continue;
-
-                if (obstacles.Count > 0)
+                pose.GetScanRowBounds(forwardStep, out bool xMajor, out int relativeMajor,
+                    out int minMinor, out int maxMinor);
+                for (int relativeMinor = minMinor; relativeMinor <= maxMinor; relativeMinor++)
                 {
-                    float reached = BeamGrid.Trace(origin.x, origin.z, rayX, rayZ, rayLength,
-                        currentMapTransparency, out _, out _, offsetX, offsetZ);
-                    if (reached < rayLength - 0.0001f) continue;
-                }
+                    int x = xMajor ? origin.x + relativeMajor : origin.x + relativeMinor;
+                    int z = xMajor ? origin.z + relativeMinor : origin.z + relativeMajor;
+                    if ((uint)x >= (uint)map.Size.x || (uint)z >= (uint)map.Size.z) continue;
 
-                IntVec3 cell = new IntVec3(x, 0, z);
-                destination[map.cellIndices.CellToIndex(cell)] = BeamLightField.IntensityAt(pose, lane, depth);
+                    float relativeX = x - origin.x;
+                    float relativeZ = z - origin.z;
+                    if (!pose.TryGetLane(relativeX, relativeZ, out float lane, out float depth)) continue;
+                    if (traceForBlockers)
+                    {
+                        if (!pose.GetSampleRay(relativeX, relativeZ, lane, out float rayX, out float rayZ,
+                            out float rayLength, out float offsetX, out float offsetZ)) continue;
+                        float reached = BeamGrid.Trace(origin.x, origin.z, rayX, rayZ, rayLength,
+                            currentMapTransparency, out _, out _, offsetX, offsetZ);
+                        if (reached < rayLength - 0.0001f) continue;
+                    }
+
+                    IntVec3 cell = new IntVec3(x, 0, z);
+                    destination[map.cellIndices.CellToIndex(cell)] = BeamLightField.IntensityAt(pose, lane, depth);
+                }
             }
         }
 
@@ -230,9 +241,15 @@ namespace DirectedSearchlights
             hasReachedBounds = false;
             CenterCell = IntVec3.Invalid;
             pose = default;
+            relevantBlockers.Clear();
+            hasPotentialBlockingLane = false;
             meshDirty = true;
             triangles.Clear();
-            if (map == null || !origin.InBounds(map) || range <= 0f) return;
+            if (map == null || !origin.InBounds(map) || range <= 0f)
+            {
+                UpdateSampleRevision();
+                return;
+            }
 
             pose = new BeamPose(origin.x, origin.z, heading, range, diameter);
             float halfAngle = pose.HalfAngle;
@@ -240,7 +257,6 @@ namespace DirectedSearchlights
             float forwardX = pose.ForwardX;
             float forwardZ = pose.ForwardZ;
             float halfAngleRadians = halfAngle * Mathf.Deg2Rad;
-            float slope = pose.CapDepth / range;
             float capDepth = pose.CapDepth;
             float bodyLength = pose.BodyLength;
             if (bodyLength <= 0f) return;
@@ -301,11 +317,10 @@ namespace DirectedSearchlights
             {
                 int x = cell.x, z = cell.z;
                 if (x < minX || x > maxX || z < minZ || z > maxZ) continue;
-                float along = (x - origin.x) * forwardX + (z - origin.z) * forwardZ;
-                float across = (x - origin.x) * forwardZ - (z - origin.z) * forwardX;
-                if (along < -1f || Mathf.Abs(across) > Mathf.Max(0f, along) * slope + 1f) continue;
+                if (!pose.IsPotentialBlockerCell(x - origin.x, z - origin.z)) continue;
                 if (cell.CanBeSeenOverFast(map)) continue;
                 needsClipping = true;
+                relevantBlockers.Add(cell);
                 for (int ix = -1; ix <= 1; ix += 2)
                 for (int iz = -1; iz <= 1; iz += 2)
                 {
@@ -323,6 +338,8 @@ namespace DirectedSearchlights
                     lanes.Add(Mathf.Min(1f, lane + nudge));
                 }
             }
+            hasPotentialBlockingLane = relevantBlockers.Count > 0 && needsClipping;
+            UpdateSampleRevision();
             if (needsClipping) lanes.Sort();
             MeshPoseCount++;
             vertices.Clear();
@@ -378,6 +395,36 @@ namespace DirectedSearchlights
                     triangles.Add(a + 4);
                 }
             }
+        }
+
+        private void UpdateSampleRevision()
+        {
+            bool changed = !hasSampleSnapshot || !ReferenceEquals(sampledMap, map) ||
+                !SameSamplePose(sampledPose, pose) || previousRelevantBlockers.Count != relevantBlockers.Count;
+            if (!changed)
+            {
+                for (int i = 0; i < relevantBlockers.Count; i++)
+                {
+                    if (previousRelevantBlockers[i].Equals(relevantBlockers[i])) continue;
+                    changed = true;
+                    break;
+                }
+            }
+
+            if (changed) unchecked { SampleRevision++; }
+            sampledMap = map;
+            sampledPose = pose;
+            previousRelevantBlockers.Clear();
+            previousRelevantBlockers.AddRange(relevantBlockers);
+            hasSampleSnapshot = true;
+        }
+
+        private static bool SameSamplePose(BeamPose left, BeamPose right)
+        {
+            if (left.IsValid != right.IsValid) return false;
+            if (!left.IsValid) return true;
+            return left.OriginX == right.OriginX && left.OriginZ == right.OriginZ &&
+                left.Heading == right.Heading && left.Range == right.Range && left.Diameter == right.Diameter;
         }
 
         private static float Normalize(float angle)

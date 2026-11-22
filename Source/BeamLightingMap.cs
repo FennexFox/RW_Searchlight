@@ -69,7 +69,7 @@ namespace DirectedSearchlights
                 lamps.Add(lamp, sample);
             }
 
-            int revision = beam.Revision;
+            int revision = beam.SampleRevision;
             if (sample.HasRevision && sample.Revision == revision && ReferenceEquals(sample.Beam, beam)) return;
 
             Dictionary<int, byte> oldCells = sample.Cells;
