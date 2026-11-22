@@ -292,6 +292,8 @@ namespace SearchlightLightingPerformanceHarness
                 int lane = count <= 1 ? 0 : (int)Math.Round(i * 49.0 / (count - 1));
                 IntVec3 p = origin + new IntVec3(-12, 0, -24 + lane);
                 Building_Searchlight lamp = (Building_Searchlight)GenSpawn.Spawn(lightDef, p, map);
+                var breakdown = lamp.GetComp<CompBreakdownable>();
+                if (breakdown != null) map.GetComponent<BreakdownManager>().Deregister(breakdown);
                 lamp.GetComp<CompPowerTrader>().PowerOn = true;
                 lamp.SetMode(workload == Workload.Rotating || workload == Workload.MovingTarget ? SearchlightMode.Sweep : SearchlightMode.Fixed);
                 int aimDistance = workload == Workload.ToggledDoor ? 30 : 60;
@@ -381,6 +383,8 @@ namespace SearchlightLightingPerformanceHarness
         private static void FinishSample()
         {
             long[] raw = TickProbe.End();
+            if (Lamps.Any(lamp => !lamp.IsOperating))
+                throw new InvalidOperationException("A measured lamp stopped operating before the sample finished.");
             if (raw.Length != sampleTicks) throw new InvalidOperationException("Expected " + sampleTicks + " measured ticks; captured " + raw.Length + ".");
             double[] ms = raw.Select(t => t * 1000.0 / Stopwatch.Frequency).OrderBy(x => x).ToArray();
             long[] stageEnd = ReadCounters();
