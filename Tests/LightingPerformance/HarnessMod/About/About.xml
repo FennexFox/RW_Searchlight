@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>Searchlight Lighting Performance Harness</name>
+  <author>Searchlight tests</author>
+  <packageId>searchlight.lightingperformanceharness</packageId>
+  <supportedVersions><li>1.6</li><li>1.7</li></supportedVersions>
+  <loadAfter><li>brrainz.harmony</li><li>DirectedSearchlights.Searchlight</li></loadAfter>
+  <description>Isolated performance fixture. Do not enable in a normal game.</description>
+</ModMetaData>
