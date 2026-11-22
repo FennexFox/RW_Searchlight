@@ -26,6 +26,7 @@ namespace SearchlightCoordinationHarness
         private readonly List<Thing> fixtures = new List<Thing>();
         private readonly string phase;
         private readonly string resultPath;
+        private readonly bool preciseLightingRequested;
         private Map home;
         private IntVec3 origin;
         private int nextTick;
@@ -40,9 +41,11 @@ namespace SearchlightCoordinationHarness
         public CoordinationCheck(Game game)
         {
             GenCommandLine.TryGetCommandLineArg("ds-coordination-phase", out phase);
+            preciseLightingRequested = GenCommandLine.CommandLineArgPassed("ds-coordination-precise-lighting");
             if (phase != "fresh" && phase != "current") return;
             resultPath = Path.Combine(GenFilePaths.SaveDataFolderPath, phase + "-results.txt");
-            Write("harness created");
+            Write("harness created; assemblyMvid=" + typeof(Building_Searchlight).Assembly.ManifestModule.ModuleVersionId.ToString("D") +
+                "; preciseLightingRequested=" + preciseLightingRequested);
         }
 
         public override void GameComponentUpdate()
@@ -55,14 +58,28 @@ namespace SearchlightCoordinationHarness
                     started = true;
                     home = Find.CurrentMap;
                     Find.TickManager.CurTimeSpeed = TimeSpeed.Superfast;
+                    SearchlightLightingGame lighting = Current.Game.GetComponent<SearchlightLightingGame>();
+                    Require(lighting != null, "game has a searchlight lighting mode component");
                     if (phase == "fresh")
                     {
+                        if (preciseLightingRequested) lighting.SetMode(SearchlightLightingMode.PreciseField);
+                        Require(lighting.CurrentMode == (preciseLightingRequested
+                            ? SearchlightLightingMode.PreciseField
+                            : SearchlightLightingMode.LegacyEndpoint), "fresh game uses the requested lighting mode");
+                        Write("fresh lighting mode=" + lighting.CurrentMode);
                         origin = home.Center - new IntVec3(30, 0, 0);
                         ClearArena(home, origin, 5, 67, 20);
                         Write("fresh map=" + home.Size + "; origin=" + origin);
                         BeginUniqueLocks();
                     }
-                    else BeginCurrentReload();
+                    else
+                    {
+                        Require(lighting.CurrentMode == (preciseLightingRequested
+                            ? SearchlightLightingMode.PreciseField
+                            : SearchlightLightingMode.LegacyEndpoint), "current save restored its lighting mode without overriding it");
+                        Write("current lighting mode=" + lighting.CurrentMode);
+                        BeginCurrentReload();
+                    }
                 }
                 if (readyToSave)
                 {
@@ -119,6 +136,13 @@ namespace SearchlightCoordinationHarness
 
         private IntVec3 Cell(int x, int z) => origin + new IntVec3(x, 0, z);
 
+        private static IntVec3 ProgressCell(Pawn pawn)
+        {
+            Vector3 position = Vector3.Lerp(pawn.Position.ToVector3Shifted(),
+                pawn.pather.nextCell.ToVector3Shifted(), pawn.pather.MovePercentage);
+            return new IntVec3(Mathf.FloorToInt(position.x), 0, Mathf.FloorToInt(position.z));
+        }
+
         private Building_Searchlight Lamp(int x, int z, bool tower = false, Map map = null, IntVec3? at = null)
         {
             var def = DefDatabase<ThingDef>.GetNamed(tower ? "DS_SearchlightTower" : "DS_SearchlightTurret");
@@ -132,6 +156,30 @@ namespace SearchlightCoordinationHarness
         }
 
         private static void Power(Building_Searchlight lamp, bool enabled) => lamp.GetComp<CompPowerTrader>().PowerOn = enabled;
+
+        private void RequireIlluminated(Building_Searchlight lamp, IntVec3 cell, string message)
+        {
+            if (!preciseLightingRequested)
+            {
+                Require(lamp.SpotCell == cell, message + "; endpoint=" + lamp.SpotCell + "; expected=" + cell);
+                return;
+            }
+
+            float groundGlow = home.glowGrid.GroundGlowAt(cell, ignoreSky: true);
+            Require(groundGlow > 0.001f, message + "; measured field ground glow=" + groundGlow.ToString("F4"));
+        }
+
+        private void RequireNotIlluminated(Building_Searchlight lamp, IntVec3 cell, string message)
+        {
+            if (!preciseLightingRequested)
+            {
+                Require(lamp.SpotCell != cell, message + "; endpoint=" + lamp.SpotCell + "; blocked=" + cell);
+                return;
+            }
+
+            float groundGlow = home.glowGrid.GroundGlowAt(cell, ignoreSky: true);
+            Require(groundGlow < 0.001f, message + "; measured field ground glow=" + groundGlow.ToString("F4"));
+        }
 
         private Pawn Hostile(int x, int z, Map map = null, IntVec3? at = null)
         {

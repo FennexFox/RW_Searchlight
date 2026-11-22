@@ -198,34 +198,39 @@ namespace SearchlightCoordinationHarness
             IntVec3 initialDirectCell = direct.Position;
             Wall(5, 0);
             tower.SelectManualTarget(blocked);
-            Require(Reserved(Network, blocked) == 1 && tower.SpotCell != blocked.Position,
-                "a tower reserves a blocked detection without illuminating the pawn");
-            After(BatchWindow - 1, () =>
+            Require(Reserved(Network, blocked) == 1,
+                "a tower reserves a blocked detection");
+            After(1, () =>
             {
-                ExpectAlerts(2, 3, 1, 0);
-                Require(second.AcquisitionCount == 0 && second.LockedTarget == null, "Fixed lamp did not detect eligible pawn");
-                second.SetMode(SearchlightMode.Automatic);
-                second.SelectManualTarget(direct);
-                After(1, () =>
+                RequireNotIlluminated(tower, blocked.Position,
+                    "a tower detects a blocked pawn without illuminating it");
+                After(BatchWindow - 2, () =>
                 {
-                    ExpectAlerts(3, 5, 2, 2);
-                    Message notification = CheckMessage("DS_DetectedHostiles".Translate(2), initialBlockedCell, initialDirectCell);
-                    blocked.Position = Cell(16, 0);
-                    Require(notification.lookTargets.targets.Any(t => t.Cell == initialBlockedCell) &&
-                        notification.lookTargets.targets.All(t => t.Cell != blocked.Position), "notification remains at original detection cell as pawn moves");
-                    home.fogGrid.Refog(CellRect.SingleCell(initialDirectCell));
+                    ExpectAlerts(2, 3, 1, 0);
+                    Require(second.AcquisitionCount == 0 && second.LockedTarget == null, "Fixed lamp did not detect eligible pawn");
+                    second.SetMode(SearchlightMode.Automatic);
+                    second.SelectManualTarget(direct);
                     After(1, () =>
                     {
-                        Require(direct.Fogged() && Reserved(Network, direct) == 0, "fog immediately invalidates the reservation");
-                        ExpectAlerts(3, 5, 2, 1);
-                        tower.SetAlertMode(DetectionAlertMode.Off);
-                        second.SetAlertMode(DetectionAlertMode.Off);
+                        ExpectAlerts(3, 5, 2, 2);
+                        Message notification = CheckMessage("DS_DetectedHostiles".Translate(2), initialBlockedCell, initialDirectCell);
+                        blocked.Position = Cell(16, 0);
+                        Require(notification.lookTargets.targets.Any(t => t.Cell == initialBlockedCell) &&
+                            notification.lookTargets.targets.All(t => t.Cell != blocked.Position), "notification remains at original detection cell as pawn moves");
+                        home.fogGrid.Refog(CellRect.SingleCell(initialDirectCell));
                         After(1, () =>
                         {
-                            ExpectAlerts(3, 5, 2, 0);
-                            home.fogGrid.Unfog(initialDirectCell);
-                            Write("batch of two sends one real message with static cell targets and one opt-in sound; fog/Off clear markers");
-                            BeginConcentratePolicy();
+                            Require(direct.Fogged() && Reserved(Network, direct) == 0, "fog immediately invalidates the reservation");
+                            ExpectAlerts(3, 5, 2, 1);
+                            tower.SetAlertMode(DetectionAlertMode.Off);
+                            second.SetAlertMode(DetectionAlertMode.Off);
+                            After(1, () =>
+                            {
+                                ExpectAlerts(3, 5, 2, 0);
+                                home.fogGrid.Unfog(initialDirectCell);
+                                Write("batch of two sends one real message with static cell targets and one opt-in sound; fog/Off clear markers");
+                                BeginConcentratePolicy();
+                            });
                         });
                     });
                 });
@@ -296,6 +301,8 @@ namespace SearchlightCoordinationHarness
             int delivery = int.Parse(File.ReadAllText(Path.Combine(GenFilePaths.SaveDataFolderPath, SaveAlertTickFile)), CultureInfo.InvariantCulture);
             After(BatchWindow + ScanInterval, () =>
             {
+                RequireIlluminated(manual, target.Position,
+                    "current save reload restores the selected target's light field");
                 ExpectAlerts(0, 0, 0, 0);
                 IntVec3 cell = target.Position;
                 target.DeSpawn();

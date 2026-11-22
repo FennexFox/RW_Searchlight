@@ -3,18 +3,30 @@
 Build the package for the installed game before running the fixture. The runner
 selects the RimWorld 1.6 or 1.7 references and executable using `Version.txt`.
 For an alternate installation, use the same game directory for both commands.
-The checkout must be installed or linked in that game's Mods folder.
+The runner links this checkout into that game's Mods folder when it is not
+already installed. It verifies that each phase loaded the assembly MVID from
+this checkout. Build the matching package first so the checked assembly is
+current.
 
 ```powershell
 $game = 'C:\Games\RimWorld'
 .\build.ps1 -RimWorldPath $game
 .\Tests\Coordination\Run-Coordination.ps1 -RimWorldPath $game
+# Run the same fresh-save and reload fixture with the precise field backend:
+.\Tests\Coordination\Run-Coordination.ps1 -RimWorldPath $game -PreciseLighting
 ```
 
 The runner uses a fresh temporary save-data profile with Core, Directed
 Searchlights, and a harness mod. It prints the profile path and retains the game
 logs, result files, and generated save there. It reloads the save in a separate
 game process. `-TimeoutSeconds` applies to each process.
+
+`-PreciseLighting` adds Harmony to the isolated active-mod list, selects
+Precise Field mode before the fresh fixture creates lamps, and verifies the
+saved mode after reload. Illumination assertions read `GroundGlowAt` with sky
+light excluded; the default run keeps its legacy endpoint `SpotCell` checks.
+The separate `-LegacySave` migration run still checks the older save's default
+legacy behavior.
 
 The fixture checks the chosen pawn IDs and per-pawn reservation counts. It covers
 Spread, Independent, Concentrate, manual collisions, release and power changes,
