@@ -49,6 +49,8 @@ namespace SearchlightLightingHarness
 
         public LightingCheck(Game game)
         {
+            if (GenCommandLine.TryGetCommandLineArg("ds-lighting-mode", out _))
+                return;
             GenCommandLine.TryGetCommandLineArg("ds-lighting-output", out output);
             GenCommandLine.TryGetCommandLineArg("ds-lighting-phase", out runPhase);
             requireCe = GenCommandLine.CommandLineArgPassed("ds-lighting-require-ce");
@@ -352,7 +354,7 @@ namespace SearchlightLightingHarness
         private static float Artificial(Map map, IntVec3 cell) =>
             map.glowGrid.GroundGlowAt(cell, ignoreSky: true);
 
-        private static string Mesh(Map map, IntVec3 cell)
+        internal static string Mesh(Map map, IntVec3 cell)
         {
             // Read back the current rendered overlay's vertices without forcing regeneration.
             var section = map.mapDrawer.SectionAt(cell);

@@ -10,6 +10,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="LightingHarness.cs" />
+    <Compile Include="GameplayLightingHarness.cs" />
+    <Compile Include="LightingLifecycle.cs" />
     <Reference Include="../../$(GameVersion)/Assemblies/DirectedSearchlights.dll" Private="false" />
   </ItemGroup>
   <ItemGroup Condition="'$(GameVersion)' == '1.6'">

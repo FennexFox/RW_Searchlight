@@ -1,10 +1,13 @@
 [CmdletBinding()]
 param(
     [ValidateSet('vanilla','ce')][string]$Case = 'vanilla',
+    [ValidateSet('legacy','precise')][string]$Mode,
+    [switch]$Lifecycle,
     [ValidateRange(1, 3600)][int]$TimeoutSeconds = 240,
     [string]$RimWorldPath = $env:RIMWORLD_DIR
 )
 $ErrorActionPreference = 'Stop'
+if ($Mode -and $Lifecycle) { throw 'Select either -Mode or -Lifecycle for a single fixture run.' }
 if (!$RimWorldPath) { $RimWorldPath = Join-Path $PSScriptRoot '../../../..' }
 $game = (Resolve-Path -LiteralPath $RimWorldPath).Path
 $mod = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
@@ -19,7 +22,8 @@ if (!(Test-Path -LiteralPath $exe -PathType Leaf)) { throw "Game executable miss
 $expectedMvid = Get-AssemblyMvid (Join-Path $mod "$gameVersion/Assemblies/DirectedSearchlights.dll")
 
 $fixtureId = [guid]::NewGuid().ToString('N')
-$profile = Join-Path $env:TEMP "SearchlightLighting-$Case-$fixtureId"
+$variant = if ($Lifecycle) { "$Case-lifecycle" } elseif ($Mode) { "$Case-$Mode" } else { $Case }
+$profile = Join-Path $env:TEMP "SearchlightLighting-$variant-$fixtureId"
 $config = Join-Path $profile 'Config'
 $harness = Join-Path $profile 'HarnessMod'
 $assemblies = Join-Path $harness 'Assemblies'
@@ -59,9 +63,11 @@ if ($LASTEXITCODE -ne 0) { throw 'Lighting harness build failed. Build the match
 
 function Invoke-LightingGame([string]$Phase) {
     $result = Join-Path $profile "$Phase-results.txt"
-    $arguments = '-savedatafolder="' + $profile + '" -ds-lighting-output="' + $result + '" -ds-lighting-phase=' + $Phase
+    $fixtureArgs = if ($Lifecycle) { 'ds-lifecycle' } else { 'ds-lighting' }
+    $arguments = '-savedatafolder="' + $profile + '" -' + $fixtureArgs + '-output="' + $result + '" -' + $fixtureArgs + '-phase=' + $Phase
     if ($Phase -eq 'fresh') { $arguments += ' -quicktest' }
     if ($Case -eq 'ce') { $arguments += ' -ds-lighting-require-ce' }
+    if ($Mode) { $arguments += ' -ds-lighting-mode=' + $Mode }
     if ($gameVersion -eq '1.6') {
         $arguments += ' -logFile "' + (Join-Path $profile "$Phase-Player.log") +
             '" -screen-fullscreen 0 -screen-width 1280 -screen-height 800'
@@ -99,7 +105,20 @@ try {
     New-Item -ItemType Junction -Path $link -Target $harness | Out-Null
     $harnessJunction = @{ Path = $link; Target = $harness }
     Invoke-LightingGame 'fresh'
-    Copy-Item -LiteralPath (Join-Path $saves 'searchlight-lighting.rws') -Destination (Join-Path $saves 'autostart.rws')
+    $autostart = Join-Path $saves 'autostart.rws'
+    if ($Lifecycle) {
+        $migrationSave = New-Object System.Xml.XmlDocument
+        $migrationSave.PreserveWhitespace = $true
+        $migrationSave.Load((Join-Path $saves 'searchlight-lighting-lifecycle.rws'))
+        $modeComponents = $migrationSave.SelectNodes("//game/components/li[@Class='DirectedSearchlights.SearchlightLightingGame']")
+        if ($modeComponents.Count -ne 1) { throw "Expected one lighting mode component in the isolated fixture. Profile: $profile" }
+        $modeComponent = $modeComponents.Item(0)
+        [void]$modeComponent.ParentNode.RemoveChild($modeComponent)
+        $migrationSave.Save($autostart)
+    }
+    else {
+        Copy-Item -LiteralPath (Join-Path $saves 'searchlight-lighting.rws') -Destination $autostart
+    }
     Invoke-LightingGame 'reload'
 }
 finally {
