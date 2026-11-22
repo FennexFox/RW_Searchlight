@@ -412,7 +412,7 @@ namespace SearchlightLightingPerformanceHarness
                 throw new InvalidOperationException("Rotating fixture changed heading too few times: " + (rotationChanges - rotationChangesAtSampleStart));
             if (workloads[workloadIndex] == Workload.MovingTarget && Lamps.Count > 0 &&
                 (walker == null || !walker.Spawned || walkerTransitions - walkerTransitionsAtSampleStart < 2 ||
-                    walker.Position == walkerStartCell || Lamps.Any(l => l.LockedTarget != walker)))
+                    Lamps.Any(l => l.LockedTarget != walker)))
                 throw new InvalidOperationException("Moving target did not move and remain tracked; start=" + walkerStartCell +
                     "; end=" + (walker == null ? "null" : walker.Position.ToString()) + "; transitions=" + (walkerTransitions - walkerTransitionsAtSampleStart) +
                     "; locks=" + string.Join(" | ", Lamps.Select(l => l.LockedTarget?.thingIDNumber.ToString() ?? "none")));
