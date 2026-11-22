@@ -9,9 +9,6 @@ namespace DirectedSearchlights
     // Simulation maintains the clipped mesh. Camera movement only changes its visibility.
     public sealed class BeamField : IDisposable
     {
-        // The bright aperture is 26 pixels wide and centered 35 pixels forward on the 128px head sprite.
-        private const float LensHalfWidth = 13f / 128f;
-        private const float LensForward = 35f / 128f;
         private const float AngularStep = 0.25f;
         private const float CornerOffset = 0.005f;
         private const int GradientStepsPerCell = 10;
@@ -45,8 +42,17 @@ namespace DirectedSearchlights
         private readonly List<Vector2> uvs = new List<Vector2>();
         private readonly List<float> lanes = new List<float>();
         private readonly List<int> triangles = new List<int>();
+        private readonly Func<int, int, bool> currentMapTransparency;
+        private BeamPose pose;
 
         public IntVec3 CenterCell { get; private set; } = IntVec3.Invalid;
+        internal int Revision { get; private set; }
+
+        public BeamField()
+        {
+            // Reused by every simulated cell ray; avoid a closure allocation per sample.
+            currentMapTransparency = IsCurrentMapCellTransparent;
+        }
 
         public void Update(Map newMap, IntVec3 newOrigin, float newHeading, float newRange, float newDiameter)
         {
@@ -74,13 +80,13 @@ namespace DirectedSearchlights
         // cone cell by cell every time a light turns would duplicate a lot of work.
         public bool Reaches(IntVec3 cell)
         {
-            if (map == null || range <= 0f || !cell.InBounds(map) || cell == origin) return false;
-            int dx = cell.x - origin.x;
-            int dz = cell.z - origin.z;
-            if (dx * dx + dz * dz > range * range + 0.001f) return false;
-            float bearing = Mathf.Atan2(dx, dz) * Mathf.Rad2Deg;
-            return Mathf.Abs(Mathf.DeltaAngle(heading, bearing)) <= BeamGrid.HalfAngle(range, diameter) + 0.0001f
-                && Clear(map, origin, cell);
+            if (map == null || !cell.InBounds(map) || !pose.IsValid ||
+                !pose.TryGetSampleRay(cell.x, cell.z, out _, out _, out float rayX, out float rayZ,
+                    out float rayLength, out float offsetX, out float offsetZ)) return false;
+            if (obstacles.Count == 0) return true;
+            float reached = BeamGrid.Trace(origin.x, origin.z, rayX, rayZ, rayLength,
+                currentMapTransparency, out _, out _, offsetX, offsetZ);
+            return reached >= rayLength - 0.0001f;
         }
 
         public bool VisibleIn(CellRect view) => hasReachedBounds && reachedBounds.Overlaps(view);
@@ -108,6 +114,37 @@ namespace DirectedSearchlights
             Graphics.DrawMesh(mesh, Matrix4x4.identity, material, 0);
         }
 
+        internal void SampleLight(Dictionary<int, byte> destination)
+        {
+            if (destination == null) throw new ArgumentNullException(nameof(destination));
+            destination.Clear();
+            if (!hasReachedBounds || map == null || !pose.IsValid) return;
+
+            int minX = Mathf.Max(0, reachedBounds.minX);
+            int maxX = Mathf.Min(map.Size.x - 1, reachedBounds.maxX);
+            int minZ = Mathf.Max(0, reachedBounds.minZ);
+            int maxZ = Mathf.Min(map.Size.z - 1, reachedBounds.maxZ);
+            if (minX > maxX || minZ > maxZ) return;
+
+            for (int x = minX; x <= maxX; x++)
+            for (int z = minZ; z <= maxZ; z++)
+            {
+                if (!pose.TryGetSampleRay(x, z, out float lane, out float depth,
+                    out float rayX, out float rayZ, out float rayLength, out float offsetX, out float offsetZ))
+                    continue;
+
+                if (obstacles.Count > 0)
+                {
+                    float reached = BeamGrid.Trace(origin.x, origin.z, rayX, rayZ, rayLength,
+                        currentMapTransparency, out _, out _, offsetX, offsetZ);
+                    if (reached < rayLength - 0.0001f) continue;
+                }
+
+                IntVec3 cell = new IntVec3(x, 0, z);
+                destination[map.cellIndices.CellToIndex(cell)] = BeamLightField.IntensityAt(pose, lane, depth);
+            }
+        }
+
         public void Dispose()
         {
             if (mesh != null) UnityEngine.Object.Destroy(mesh);
@@ -118,6 +155,7 @@ namespace DirectedSearchlights
             hasObstacleCache = false;
             lastRebuildTick = int.MinValue;
             hasReachedBounds = false;
+            pose = default;
             CenterCell = IntVec3.Invalid;
         }
 
@@ -188,24 +226,25 @@ namespace DirectedSearchlights
 
         private void Rebuild()
         {
+            unchecked { Revision++; }
             hasReachedBounds = false;
             CenterCell = IntVec3.Invalid;
+            pose = default;
             meshDirty = true;
             triangles.Clear();
             if (map == null || !origin.InBounds(map) || range <= 0f) return;
 
-            float halfAngle = BeamGrid.HalfAngle(range, diameter);
+            pose = new BeamPose(origin.x, origin.z, heading, range, diameter);
+            float halfAngle = pose.HalfAngle;
             float overlayHeight = AltitudeLayer.MoteLow.AltitudeFor();
-            float headingRadians = heading * Mathf.Deg2Rad;
-            float forwardX = Mathf.Sin(headingRadians);
-            float forwardZ = Mathf.Cos(headingRadians);
+            float forwardX = pose.ForwardX;
+            float forwardZ = pose.ForwardZ;
             float halfAngleRadians = halfAngle * Mathf.Deg2Rad;
-            float slope = Mathf.Tan(halfAngleRadians);
-            float capDepth = range * slope;
-            // The original focus width is measured from the building center.
-            float bodyLength = range - LensForward;
+            float slope = pose.CapDepth / range;
+            float capDepth = pose.CapDepth;
+            float bodyLength = pose.BodyLength;
             if (bodyLength <= 0f) return;
-            float spread = (capDepth - LensHalfWidth) / bodyLength;
+            float spread = pose.Spread;
             // Short aims can hit the angle limit and be narrower than the configured diameter.
             gradientDiameterStep = Mathf.Clamp(Mathf.RoundToInt(2f * capDepth * GradientStepsPerCell),
                 0, Gradients.Length - 1);
@@ -222,7 +261,8 @@ namespace DirectedSearchlights
             int minZ = Mathf.FloorToInt(Mathf.Min(origin.z, Mathf.Min(leftZ, rightZ))) - 1;
             int maxZ = Mathf.CeilToInt(Mathf.Max(origin.z, Mathf.Max(leftZ, rightZ))) + 1;
             IntVec3 centerLast;
-            Trace(map, origin, forwardX, forwardZ, range, out centerLast);
+            pose.GetLaneRay(0f, out float centerOffsetX, out float centerOffsetZ, out float centerRayX, out float centerRayZ);
+            Trace(origin, centerRayX, centerRayZ, bodyLength, out centerLast, centerOffsetX, centerOffsetZ);
             if (centerLast != origin && centerLast.InBounds(map)) CenterCell = centerLast;
             reachedBounds = CellRect.FromLimits(minX, minZ, maxX, maxZ);
             hasReachedBounds = true;
@@ -271,11 +311,11 @@ namespace DirectedSearchlights
                 {
                     float cornerX = x + ix * 0.5f - origin.x;
                     float cornerZ = z + iz * 0.5f - origin.z;
-                    float depth = cornerX * forwardX + cornerZ * forwardZ - LensForward;
+                    float depth = cornerX * forwardX + cornerZ * forwardZ - BeamPose.LensForward;
                     if (depth <= 0f) continue;
-                    float halfWidth = LensHalfWidth + depth * spread;
+                    float halfWidth = BeamPose.LensHalfWidth + depth * spread;
                     if (halfWidth <= 0f) continue;
-                    float lane = (cornerX * forwardZ - cornerZ * forwardX) / halfWidth;
+                    float lane = (cornerX * pose.RightX + cornerZ * pose.RightZ) / halfWidth;
                     if (Mathf.Abs(lane) > 1f) continue;
                     float nudge = CornerOffset / halfAngle;
                     lanes.Add(Mathf.Max(-1f, lane - nudge));
@@ -293,11 +333,9 @@ namespace DirectedSearchlights
             {
                 if (lane - previous < 0.00001f) continue;
                 previous = lane;
-                float offsetX = forwardX * LensForward + forwardZ * lane * LensHalfWidth;
-                float offsetZ = forwardZ * LensForward - forwardX * lane * LensHalfWidth;
+                pose.GetLaneRay(lane, out float offsetX, out float offsetZ, out float rayX, out float rayZ);
                 Vector3 start = lens + new Vector3(offsetX, 0f, offsetZ);
-                Vector3 ray = new Vector3(forwardX + forwardZ * lane * spread, 0f,
-                    forwardZ - forwardX * lane * spread);
+                Vector3 ray = new Vector3(rayX, 0f, rayZ);
                 float u = (lane + 1f) * 0.5f;
                 float limit = BeamGrid.VisualRayLimit(bodyLength, capDepth, u);
                 float depth = limit;
@@ -305,7 +343,7 @@ namespace DirectedSearchlights
                 {
                     float rayScale = ray.magnitude;
                     Vector3 direction = ray / rayScale;
-                    float traveled = Trace(map, origin, direction.x, direction.z, limit * rayScale,
+                    float traveled = Trace(origin, direction.x, direction.z, limit * rayScale,
                         out _, offsetX, offsetZ);
                     depth = Mathf.Min(limit, traveled / rayScale);
                     VisualRayTraceCount++;
@@ -348,15 +386,17 @@ namespace DirectedSearchlights
             return angle < 0f ? angle + 360f : angle;
         }
 
-        private static float Trace(Map map, IntVec3 from, float dx, float dz, float limit, out IntVec3 last,
+        private float Trace(IntVec3 from, float dx, float dz, float limit, out IntVec3 last,
             float offsetX = 0f, float offsetZ = 0f)
         {
             int x, z;
             float distance = BeamGrid.Trace(from.x, from.z, dx, dz, limit,
-                (cellX, cellZ) => Transparent(map, cellX, cellZ), out x, out z, offsetX, offsetZ);
+                currentMapTransparency, out x, out z, offsetX, offsetZ);
             last = new IntVec3(x, 0, z);
             return distance;
         }
+
+        private bool IsCurrentMapCellTransparent(int x, int z) => Transparent(map, x, z);
 
         private static bool Transparent(Map map, int x, int z)
         {

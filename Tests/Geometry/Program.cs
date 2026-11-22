@@ -110,6 +110,63 @@ static class Program
               BeamGrid.SpotRadius(60, 2, 1) == 0.5f, "endpoint radius follows width and obstruction distance");
         Check(Math.Abs(Trace(0f, 1f, 60f, clip30, out x, out z) - 29.5f) < 0.001f,
             "range 60 beam clips at wall 30");
+
+        var pose = new BeamPose(0, 0, 0f, 60f, 4f);
+        Check(pose.TryGetSampleRay(0, 60, out float centerLane, out float centerDepth,
+                  out float centerRayX, out float centerRayZ, out float centerRayLength,
+                  out float centerOffsetX, out float centerOffsetZ) &&
+              Math.Abs(centerLane) < 0.0001f && Math.Abs(centerDepth - pose.BodyLength) < 0.001f &&
+              Math.Abs(centerRayLength - pose.BodyLength) < 0.001f && centerRayX == 0f && centerRayZ == 1f,
+            "finite lens samples the central ray to the 60-cell focus");
+        Check(!pose.TryGetSampleRay(0, 61, out _, out _, out _, out _, out _, out _, out _) &&
+              !pose.TryGetSampleRay(1, 60, out _, out _, out _, out _, out _, out _, out _),
+            "ground coverage stops at the radial aim range");
+        Check(pose.TryGetSampleRay(1, 30, out float midLane, out _, out _, out _, out _, out _, out _) &&
+              Math.Abs(midLane) < 1f &&
+              !pose.TryGetSampleRay(2, 30, out _, out _, out _, out _, out _, out _, out _),
+            "finite aperture contains the near edge and excludes cells outside its lane");
+        Check(Math.Abs(pose.WidthAtDepth(pose.BodyLength) - 4f) < 0.001f,
+            "default focus width remains four cells");
+
+        var northBlocker = new HashSet<(int, int)> { (0, 2) };
+        float lensWallDistance = BeamGrid.Trace(0, 0, centerRayX, centerRayZ, centerRayLength,
+            (cx, cz) => !northBlocker.Contains((cx, cz)), out x, out z,
+            centerOffsetX, centerOffsetZ);
+        Check(Math.Abs(lensWallDistance - (1.5f - BeamPose.LensForward)) < 0.001f && z == 1,
+            "cell-center illumination stops at a blocker face from the lens offset");
+        northBlocker.Clear();
+        float clearLensDistance = BeamGrid.Trace(0, 0, centerRayX, centerRayZ, centerRayLength,
+            (cx, cz) => true, out x, out z, centerOffsetX, centerOffsetZ);
+        Check(Math.Abs(clearLensDistance - centerRayLength) < 0.001f && z == 60,
+            "an open door or clear lane transmits through the target center");
+
+        var diagonalPose = new BeamPose(0, 0, 45f, 60f, 4f);
+        Check(diagonalPose.TryGetSampleRay(2, 2, out float diagonalLane, out _,
+                  out float diagonalRayX, out float diagonalRayZ, out float diagonalRayLength,
+                  out float diagonalOffsetX, out float diagonalOffsetZ) && Math.Abs(diagonalLane) < 0.0001f,
+            "fractional heading uses the same central lane geometry");
+        var grazingWall = new HashSet<(int, int)> { (1, 0) };
+        float diagonalWallDistance = BeamGrid.Trace(0, 0, diagonalRayX, diagonalRayZ, diagonalRayLength,
+            (cx, cz) => !grazingWall.Contains((cx, cz)), out x, out z,
+            diagonalOffsetX, diagonalOffsetZ);
+        Check(diagonalWallDistance < diagonalRayLength && z == 0,
+            "supercover sampling blocks diagonal corner grazing from the finite lens");
+        float mapEdgeDistance = BeamGrid.Trace(0, 0, -1f, 0f, 5f,
+            (cx, cz) => cx >= 0 && cz >= 0, out x, out z, -BeamPose.LensForward, 0f);
+        Check(Math.Abs(mapEdgeDistance - (0.5f - BeamPose.LensForward)) < 0.001f && x == 0,
+            "lens-offset tracing clips at the map edge");
+
+        var narrowPose = new BeamPose(0, 0, 0f, 60f, 2f);
+        var widePose = new BeamPose(0, 0, 0f, 60f, 6f);
+        byte focusCenter = BeamLightField.IntensityAt(pose, 0f, pose.BodyLength);
+        byte narrowCenter = BeamLightField.IntensityAt(narrowPose, 0f, narrowPose.BodyLength);
+        byte wideCenter = BeamLightField.IntensityAt(widePose, 0f, widePose.BodyLength);
+        byte edge = BeamLightField.IntensityAt(pose, 1f, pose.BodyLength);
+        Check(focusCenter == 36 && narrowCenter >= focusCenter && focusCenter >= wideCenter,
+            "default focus is calibrated to raw RGB 36 and narrower beams are no darker");
+        Check(edge > 0 && edge < focusCenter,
+            "the physical beam edge retains nonzero light intensity");
+
         if (failures != 0) Environment.Exit(1);
         Console.WriteLine("Geometry checks passed.");
     }
