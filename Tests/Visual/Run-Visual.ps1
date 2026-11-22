@@ -1,4 +1,5 @@
 param(
+    [switch]$PreciseLighting,
     [int]$TimeoutSeconds = 180,
     [string]$RimWorldPath = (Join-Path $PSScriptRoot '..\..\..\..')
 )
@@ -20,7 +21,8 @@ else {
     $gameVersion = '1.6'
 }
 $expectedMvid = Get-AssemblyMvid (Join-Path $mod "$gameVersion/Assemblies/DirectedSearchlights.dll")
-$profile = Join-Path $env:TEMP ('SearchlightVisual-' + [guid]::NewGuid().ToString('N'))
+$profileKind = if ($PreciseLighting) { 'SearchlightVisual-precise-' } else { 'SearchlightVisual-' }
+$profile = Join-Path $env:TEMP ($profileKind + [guid]::NewGuid().ToString('N'))
 $config = Join-Path $profile 'Config'
 $harness = Join-Path $profile 'HarnessMod'
 $assemblyDir = Join-Path $harness 'Assemblies'
@@ -35,13 +37,14 @@ New-Item -ItemType Directory -Path $config,$about,$assemblyDir | Out-Null
   <supportedVersions><li>$gameVersion</li></supportedVersions>
 </ModMetaData>
 "@ | Set-Content -LiteralPath (Join-Path $about 'About.xml') -Encoding utf8
+$mods = @('ludeon.rimworld', 'DirectedSearchlights.Searchlight', 'searchlight.visualharness')
+if ($PreciseLighting) { $mods = @('brrainz.harmony') + $mods }
+$items = ($mods | ForEach-Object { "    <li>$_</li>" }) -join "`n"
 @"
 <ModsConfigData>
   <version>$gameVersion</version>
   <activeMods>
-    <li>ludeon.rimworld</li>
-    <li>DirectedSearchlights.Searchlight</li>
-    <li>searchlight.visualharness</li>
+$items
   </activeMods>
 </ModsConfigData>
 "@ | Set-Content -LiteralPath (Join-Path $config 'ModsConfig.xml') -Encoding utf8
@@ -58,6 +61,7 @@ try {
     $createdHarnessJunction = $true
     Write-Output "Profile: $profile"
     $argLine = '-quicktest -savedatafolder="' + $profile + '" -ds-visual-output="' + $profile + '"'
+    if ($PreciseLighting) { $argLine += ' -ds-visual-precise' }
     if ($gameVersion -eq '1.6') {
         $argLine += ' -logFile "' + (Join-Path $profile 'Player.log') + '" -screen-fullscreen 0 -screen-width 1280 -screen-height 800'
     }
@@ -77,6 +81,14 @@ try {
     if ($process.ExitCode -ne 0 -or $resultText -notmatch '(?m)^PASS\s*$' -or
         $resultText -notmatch ('assemblyMvid=' + [regex]::Escape($expectedMvid) + '(?:\s|;)')) {
         throw "Visual harness failed with exit code $($process.ExitCode). Profile: $profile"
+    }
+    if ($PreciseLighting) {
+        foreach ($scene in '18-tiles','60-tiles','60-tiles-tip','partial-wall','full-wall') {
+            foreach ($suffix in '', '-mask') {
+                $capture = Get-Item -LiteralPath (Join-Path $profile "$scene$suffix.png")
+                if ($capture.Length -le 0) { throw "Empty precise-lighting capture: $capture" }
+            }
+        }
     }
 }
 finally {

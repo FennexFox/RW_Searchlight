@@ -13,6 +13,8 @@ namespace SearchlightVisualHarness
     public sealed class CaptureCheck : GameComponent
     {
         private readonly string output;
+        private readonly bool preciseLighting;
+        private PreciseVisualFixture preciseFixture;
         private Building_Searchlight lamp;
         private IntVec3 origin;
         private int stage;
@@ -25,6 +27,7 @@ namespace SearchlightVisualHarness
         public CaptureCheck(Game game)
         {
             GenCommandLine.TryGetCommandLineArg("ds-visual-output", out output);
+            preciseLighting = GenCommandLine.CommandLineArgPassed("ds-visual-precise");
             if (!string.IsNullOrEmpty(output))
                 Record("assemblyMvid=" + typeof(Building_Searchlight).Assembly.ManifestModule.ModuleVersionId.ToString("D"));
         }
@@ -41,6 +44,11 @@ namespace SearchlightVisualHarness
                 }
 
                 lamp.GetComp<CompPowerTrader>().PowerOn = true;
+                if (preciseFixture != null)
+                {
+                    preciseFixture.Update();
+                    return;
+                }
                 if (sentries != null)
                     foreach (var sentry in sentries)
                         sentry.GetComp<CompPowerTrader>().PowerOn = true;
@@ -96,6 +104,7 @@ namespace SearchlightVisualHarness
                 var cell = origin + new IntVec3(x, 0, z);
                 if (!cell.InBounds(map)) continue;
                 map.roofGrid.SetRoof(cell, null);
+                if (preciseLighting && cell.Fogged(map)) map.fogGrid.Unfog(cell);
                 foreach (Thing thing in cell.GetThingList(map).ToList())
                     if (thing is Plant || thing.def.passability == Traversability.Impassable ||
                         thing.TryGetComp<CompGlower>() != null)
@@ -113,6 +122,8 @@ namespace SearchlightVisualHarness
             ticks.CurTimeSpeed = TimeSpeed.Superfast;
             Find.UIRoot.screenshotMode.Active = true;
             Record($"setup; game={VersionControl.CurrentVersionString}; map={map.Size}; origin={origin}; diameter={SearchlightSettings.Diameter}");
+            if (preciseLighting)
+                preciseFixture = new PreciseVisualFixture(map, lamp, origin, output, Record, Exit);
         }
 
         private void CheckObstacleCache(Map map)
