@@ -344,7 +344,7 @@ namespace SearchlightCoordinationHarness
                     Require(walker.Position.DistanceToSquared(startCell) >= 4 && lamps.All(l => l.LockedTarget == walker),
                         "the moving target stayed locked by all ten lamps");
                     if (preciseLightingRequested)
-                        RequireIlluminated(lamps[0], progressCell, "the moving target remains inside the measured beam field");
+                        RequireIlluminated(lamps[0], walker.Position, "the occupied target cell receives the moving beam");
                     else
                         foreach (Building_Searchlight lamp in lamps)
                             RequireIlluminated(lamp, progressCell, "the legacy endpoint follows the moving target's progress cell");

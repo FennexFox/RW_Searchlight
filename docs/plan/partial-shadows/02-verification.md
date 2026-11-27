@@ -38,11 +38,11 @@
 
 ## Progress
 
-- Not started.
+- Verifying the pawn-centered provider in isolated 1.6, 1.6+CE and 1.7 profiles.
 
 ## Decision log
 
-- No decisions recorded yet.
+- Keep visual geometry tests across the full beam. Measure gameplay shadow transmission at an occupied receiver cell.
 
 ## Outcomes / Retrospective
 

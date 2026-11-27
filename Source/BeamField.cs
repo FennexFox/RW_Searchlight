@@ -13,6 +13,7 @@ namespace DirectedSearchlights
         private const float AngularStep = 0.25f;
         private const float CornerOffset = 0.005f;
         private const int GradientStepsPerCell = 10;
+        private const string CombatExtendedPackageId = "ceteam.combatextended";
         private static readonly Texture2D[] Gradients = new Texture2D[6 * GradientStepsPerCell + 1];
         private static readonly Texture2D[] ShadowGradients = new Texture2D[Gradients.Length];
 
@@ -47,6 +48,8 @@ namespace DirectedSearchlights
         private readonly List<float> lanes = new List<float>();
         private readonly List<int> triangles = new List<int>();
         private readonly Func<int, int, bool> currentMapTransparency;
+        private readonly Dictionary<int, bool> sampledPawnCells = new Dictionary<int, bool>();
+        private bool combatExtendedActive;
         private BeamPose pose;
         private BeamPose sampledPose;
         private Map sampledMap;
@@ -84,6 +87,9 @@ namespace DirectedSearchlights
                 if (tick == lastRebuildTick || (tick + origin.x * 7 + origin.z) % 15 != 0) return;
             }
 
+            if (map != newMap)
+                combatExtendedActive = newMap != null &&
+                    ModLister.GetActiveModWithIdentifier(CombatExtendedPackageId, ignorePostfix: true) != null;
             if (map != newMap || origin != newOrigin || newRange <= 0f) hasObstacleCache = false;
             map = newMap;
             origin = newOrigin;
@@ -92,9 +98,10 @@ namespace DirectedSearchlights
             diameter = newDiameter;
             lastRebuildTick = tick;
             this.preciseShadows = preciseShadows;
-            if (shadowsDirty) ShadowInvalidationRebuildCount++;
+            bool occupancyChanged = shadowsDirty;
+            if (occupancyChanged) ShadowInvalidationRebuildCount++;
             shadowsDirty = false;
-            Rebuild();
+            Rebuild(occupancyChanged);
         }
 
         internal bool InvalidateShadows(IntVec3 cell)
@@ -151,41 +158,60 @@ namespace DirectedSearchlights
         {
             if (destination == null) throw new ArgumentNullException(nameof(destination));
             destination.Clear();
+            sampledPawnCells.Clear();
             if (!hasReachedBounds || map == null || !pose.IsValid) return;
 
-            bool traceForBlockers = hasPotentialBlockingLane;
-            bool sampleShadows = shadows.HasCover;
-            for (int forwardStep = 0; forwardStep <= pose.ScanMajorSteps; forwardStep++)
+            IReadOnlyList<Pawn> pawns = map.mapPawns.AllPawnsSpawned;
+            for (int i = 0; i < pawns.Count; i++)
             {
-                pose.GetScanRowBounds(forwardStep, out bool xMajor, out int relativeMajor,
-                    out int minMinor, out int maxMinor);
-                for (int relativeMinor = minMinor; relativeMinor <= maxMinor; relativeMinor++)
-                {
-                    int x = xMajor ? origin.x + relativeMajor : origin.x + relativeMinor;
-                    int z = xMajor ? origin.z + relativeMinor : origin.z + relativeMajor;
-                    if ((uint)x >= (uint)map.Size.x || (uint)z >= (uint)map.Size.z) continue;
+                Pawn pawn = pawns[i];
+                if (!pawn.Spawned) continue;
+                IntVec3 center = pawn.Position;
+                if (!SamplePawnCell(center, destination) || !combatExtendedActive) continue;
 
-                    float relativeX = x - origin.x;
-                    float relativeZ = z - origin.z;
-                    if (!pose.TryGetLane(relativeX, relativeZ, out float lane, out float depth)) continue;
-                    if (traceForBlockers)
-                    {
-                        if (!pose.GetSampleRay(relativeX, relativeZ, lane, out float rayX, out float rayZ,
-                            out float rayLength, out float offsetX, out float offsetZ)) continue;
-                        float reached = BeamGrid.Trace(origin.x, origin.z, rayX, rayZ, rayLength,
-                            currentMapTransparency, out _, out _, offsetX, offsetZ);
-                        if (reached < rayLength - 0.0001f) continue;
-                    }
-
-                    byte intensity = BeamLightField.IntensityAt(pose, lane, depth);
-                    if (sampleShadows)
-                    {
-                        float transmission = shadowGeometry.Transmission(pose, shadows.Cells, lane, depth);
-                        intensity = BeamShadowGeometry.ApplyTransmission(intensity, transmission);
-                    }
-                    if (intensity > 0) destination[map.cellIndices.CellToIndex(new IntVec3(x, 0, z))] = intensity;
-                }
+                // CE reads the surrounding glow as well. Each neighbor has
+                // its own coverage ray, including hard clipping and shadows.
+                for (int dx = -1; dx <= 1; dx++)
+                for (int dz = -1; dz <= 1; dz++)
+                    if (dx != 0 || dz != 0)
+                        SamplePawnCell(new IntVec3(center.x + dx, 0, center.z + dz), destination);
             }
+        }
+
+        private bool SamplePawnCell(IntVec3 cell, Dictionary<int, byte> destination)
+        {
+            if (!reachedBounds.Contains(cell) || !cell.InBounds(map)) return false;
+            int index = map.cellIndices.CellToIndex(cell);
+            if (sampledPawnCells.TryGetValue(index, out bool reached)) return reached;
+
+            reached = TrySampleIntensity(cell, out byte intensity);
+            sampledPawnCells.Add(index, reached);
+            if (intensity > 0) destination.Add(index, intensity);
+            return reached;
+        }
+
+        private bool TrySampleIntensity(IntVec3 cell, out byte intensity)
+        {
+            intensity = 0;
+            float relativeX = cell.x - origin.x;
+            float relativeZ = cell.z - origin.z;
+            if (!pose.TryGetLane(relativeX, relativeZ, out float lane, out float depth)) return false;
+            if (hasPotentialBlockingLane)
+            {
+                if (!pose.GetSampleRay(relativeX, relativeZ, lane, out float rayX, out float rayZ,
+                    out float rayLength, out float offsetX, out float offsetZ)) return false;
+                float reached = BeamGrid.Trace(origin.x, origin.z, rayX, rayZ, rayLength,
+                    currentMapTransparency, out _, out _, offsetX, offsetZ);
+                if (reached < rayLength - 0.0001f) return false;
+            }
+
+            intensity = BeamLightField.IntensityAt(pose, lane, depth);
+            if (shadows.HasCover)
+            {
+                float transmission = shadowGeometry.Transmission(pose, shadows.Cells, lane, depth);
+                intensity = BeamShadowGeometry.ApplyTransmission(intensity, transmission);
+            }
+            return true;
         }
 
         public void Dispose()
@@ -202,6 +228,8 @@ namespace DirectedSearchlights
             preciseShadows = false;
             shadowsDirty = false;
             shadows.Clear();
+            sampledPawnCells.Clear();
+            combatExtendedActive = false;
             CenterCell = IntVec3.Invalid;
         }
 
@@ -270,7 +298,7 @@ namespace DirectedSearchlights
                 transparent, out _, out _) >= length - 0.0001f;
         }
 
-        private void Rebuild()
+        private void Rebuild(bool occupancyChanged)
         {
             unchecked { Revision++; }
             hasReachedBounds = false;
@@ -282,7 +310,7 @@ namespace DirectedSearchlights
             triangles.Clear();
             if (map == null || !origin.InBounds(map) || range <= 0f)
             {
-                UpdateSampleRevision(shadows.Refresh(map, pose, false));
+                UpdateSampleRevision(occupancyChanged);
                 return;
             }
 
@@ -296,7 +324,7 @@ namespace DirectedSearchlights
             float bodyLength = pose.BodyLength;
             if (bodyLength <= 0f)
             {
-                UpdateSampleRevision(shadows.Refresh(map, pose, false));
+                UpdateSampleRevision(occupancyChanged);
                 return;
             }
             float spread = pose.Spread;
@@ -378,7 +406,7 @@ namespace DirectedSearchlights
                 }
             }
             hasPotentialBlockingLane = relevantBlockers.Count > 0 && needsClipping;
-            UpdateSampleRevision(shadows.Refresh(map, pose, preciseShadows));
+            UpdateSampleRevision(occupancyChanged);
             if (shadows.HasCover) BeamShadowGeometry.AddCornerLanes(pose, shadows.Cells, lanes);
             if (needsClipping || shadows.HasCover) lanes.Sort();
             MeshPoseCount++;
@@ -536,9 +564,10 @@ namespace DirectedSearchlights
             }
         }
 
-        private void UpdateSampleRevision(bool shadowsChanged)
+        private void UpdateSampleRevision(bool occupancyChanged)
         {
-            bool changed = shadowsChanged || !hasSampleSnapshot || !ReferenceEquals(sampledMap, map) ||
+            bool changed = shadows.Refresh(map, pose, preciseShadows) || occupancyChanged ||
+                !hasSampleSnapshot || !ReferenceEquals(sampledMap, map) ||
                 !SameSamplePose(sampledPose, pose) || previousRelevantBlockers.Count != relevantBlockers.Count;
             if (!changed)
             {

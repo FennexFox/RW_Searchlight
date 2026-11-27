@@ -102,16 +102,16 @@ diameter, the beam is about two cells wide where it is blocked halfway along a
 60-cell aim.
 
 In Mod Settings, **Lighting in this save** selects how a searchlight illuminates
-the ground. New games and existing saves default to **Endpoint only**. With
-Harmony enabled, select **Reached beam cells** to illuminate intermediate
-cells as the head pans.
-Each cell's center must lie inside the beam and have a clear path from the
-lens. A wall or closed door blocks light at its near face. A pawn crossing the
-beam can gain light independently of the light's selected target. Where beams
-overlap, the stronger contribution applies. Changing the setting affects every
-map in the current save.
+the ground. The default is **Endpoint only**. With Harmony enabled, select
+**Pawns in beam** to give gameplay light to every spawned pawn reached by the
+beam, including animals and friendlies. The beam and shadows remain visible
+across the ground. In vanilla only the occupied pawn cell receives gameplay
+light. With Combat Extended, each reached pawn also samples the surrounding
+eight cells used by CE, clipped to the physical beam, range and cover.
+Contributions move with the pawns. Overlapping searchlights use the strongest
+contribution. A save previously set to **Reached beam cells** uses this mode.
 
-In **Reached beam cells**, cover casts a directional shadow on both the
+In **Pawns in beam**, cover casts a directional shadow on both the
 visible beam and the ground light used by the game. A stone chunk blocks 50%
 of the light behind it. Pawns with a defined cover value use it. Other pawns
 block 35% per unit of current body size, up to 90%. The cell occupied by the

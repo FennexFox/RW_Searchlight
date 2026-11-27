@@ -14,7 +14,7 @@ These instructions apply throughout the RimWorld mod unless a nearer `AGENTS.md`
 - A tower can detect an unroofed enemy behind cover. The beam still stops at walls and closed doors. Test target acquisition, beam clipping and actual ground illumination separately.
 - Tracking uses the pawn's progress between cells. Keep the existing pan and tilt limits when changing how aim is updated.
 - A powered light with **Activate on detection** can scan while its beam is off and its draw is zero. **Night only** also gates scanning. With Atmosphere Overhaul active, the schedule follows the local solar horizon.
-- Endpoint mode uses one vanilla glower at the reached endpoint. In precise mode the finite-lens cell sampler supplies a sparse field and overlapping searchlights use the maximum. For ground illumination, sample `GroundGlowAt` with sky light excluded and allow the glow grid to refresh. Combat Extended samples neighboring cells for combat glow. See the [lighting verification record](docs/verification/illumination/README.md).
+- Endpoint mode uses one vanilla glower at the reached endpoint. In precise mode the finite-lens sampler publishes only reached pawn cells (CE also samples their clipped 3×3 neighborhoods). Overlapping searchlights use the maximum. For ground illumination, sample `GroundGlowAt` with sky light excluded and allow the glow grid to refresh. Combat Extended samples neighboring cells for combat glow. See the [lighting verification record](docs/verification/illumination/README.md).
 
 ## Build and package
 

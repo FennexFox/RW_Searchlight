@@ -4,8 +4,8 @@
 
 - Issue target: Body-size and cover shadows
 - Title: Partial shadows in precise searchlight mode
-- Source plan: None
-- Scope: Directional shadows from pawns and partial cover in precise mode on 1.6 and 1.7.
+- Source plan: accepted cover-shadow plan with the subsequent pawn-centered lighting revision.
+- Scope: Directional visual shadows across the beam and actual light at all reached pawns on 1.6 and 1.7. Vanilla publishes occupied pawn cells only. CE additionally samples their clipped 3×3 neighborhoods.
 
 ## Strategy
 

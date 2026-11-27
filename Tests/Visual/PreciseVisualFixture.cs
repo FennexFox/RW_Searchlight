@@ -114,17 +114,20 @@ namespace SearchlightVisualHarness
             if (scene == 5)
             {
                 foreach (Thing wall in fixtureWalls) wall.Destroy();
+                SpawnAdult(40);
             }
-            if (scene == 6)
-            {
-                var pawn = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfPlayer);
-                pawn.ageTracker.AgeBiologicalTicks = 30L * GenDate.TicksPerYear;
-                GenSpawn.Spawn(pawn, East(36), map);
-                pawn.jobs.StartJob(JobMaker.MakeJob(JobDefOf.Wait), JobCondition.InterruptForced);
-                record($"shadow caster={pawn.ThingID}; cell={pawn.Position}; bodySize={pawn.BodySize}");
-            }
+            if (scene == 6) SpawnAdult(36);
             readyTick = Tick + 25;
             Find.TickManager.CurTimeSpeed = TimeSpeed.Superfast;
+        }
+
+        private void SpawnAdult(int distance)
+        {
+            var pawn = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfPlayer);
+            pawn.ageTracker.AgeBiologicalTicks = 30L * GenDate.TicksPerYear;
+            GenSpawn.Spawn(pawn, East(distance), map);
+            pawn.jobs.StartJob(JobMaker.MakeJob(JobDefOf.Wait), JobCondition.InterruptForced);
+            record($"probe pawn={pawn.ThingID}; cell={pawn.Position}; bodySize={pawn.BodySize}");
         }
 
         private void PlaceWall(int firstZ, int lastZ)
@@ -159,25 +162,20 @@ namespace SearchlightVisualHarness
 
             float meshEnd = vertices.Max(vertex => vertex.x) - (origin.x + 0.5f);
             var physicalCap = East(Range + 1);
+            if (scene <= 4) Check(samples.Count == 0, "unoccupied vanilla beam has no gameplay light");
             if (scene <= 3)
             {
-                Check(Intensity(East(Range)) > 0 && Intensity(physicalCap) == 0,
-                    "focus lights while the cell in the decorative cap stays dark");
                 Check(Covers(vertices, triangles, physicalCap) && meshEnd > Range + 1.5f,
                     "uploaded triangles reach beyond the physical focus into the rounded cap");
             }
 
             if (scene == 3)
             {
-                Check(Intensity(East(30, 1)) == 0 && Intensity(East(45, 1)) == 0 && Intensity(East(45, -1)) > 0,
-                    "partial wall clips the covered wall and shadow cells but leaves the other side lit");
                 Check(!Covers(vertices, triangles, East(45, 1)) && Covers(vertices, triangles, East(45, -1)),
                     "uploaded beam silhouette follows the partial obstruction");
             }
             if (scene == 4)
             {
-                Check(Intensity(East(29)) > 0 && Intensity(East(30)) == 0 && Intensity(East(31)) == 0 && Intensity(East(60)) == 0,
-                    "full wall ends artificial glow before the blocker");
                 Check(meshEnd <= 29.51f && Covers(vertices, triangles, East(29)) && !Covers(vertices, triangles, East(30)),
                     "uploaded beam ends at the fully blocked wall's near face");
             }
@@ -187,7 +185,7 @@ namespace SearchlightVisualHarness
                 float own = map.glowGrid.GroundGlowAt(East(36), ignoreSky: true);
                 float behind = map.glowGrid.GroundGlowAt(East(40), ignoreSky: true);
                 float expectedBehind = scene == 6 ? 0.325f : 0.50f;
-                Check(Math.Abs(own - 0.50f) < 0.015f && Math.Abs(behind - expectedBehind) < 0.015f,
+                Check(samples.Count == scene - 4 && Math.Abs(own - (scene == 6 ? 0.50f : 0f)) < 0.015f && Math.Abs(behind - expectedBehind) < 0.015f,
                     $"{Names[scene]} ground glow, caster={own}, shadow={behind}");
             }
             var probes = scene switch
