@@ -73,7 +73,10 @@ namespace DirectedSearchlights
         internal bool UsesFixedDetection => mode == SearchlightMode.Fixed && powerMode == PowerMode.EnemyOnly;
         internal bool HasFixedEnemy => fixedEnemy != null;
         internal DetectionAlertMode EffectiveAlertMode => mode == SearchlightMode.Fixed ? DetectionAlertMode.Off : alertMode;
+        internal int ShadowInvalidationRebuildCount => beam?.ShadowInvalidationRebuildCount ?? 0;
         private bool ScansForEnemies => mode != SearchlightMode.Fixed || powerMode == PowerMode.EnemyOnly;
+
+        internal bool InvalidateShadows(IntVec3 cell) => beam?.InvalidateShadows(cell) ?? false;
 
         protected virtual bool DetectThroughWalls => false;
         protected virtual bool RequiresOpenSky => false;
@@ -319,7 +322,7 @@ namespace DirectedSearchlights
         internal void RefreshBeamAndSpot()
         {
             if (!IsOperating || beam == null) { ClearVisuals(); return; }
-            beam.Update(Map, Position, aimHeading, aimRange, SearchlightSettings.Diameter);
+            beam.Update(Map, Position, aimHeading, aimRange, SearchlightSettings.Diameter, searchlights.PreciseLighting);
             if (searchlights.PreciseLighting)
             {
                 searchlights.Lighting.Publish(this, beam);
@@ -359,7 +362,7 @@ namespace DirectedSearchlights
         {
             searchlights?.WithdrawField(this);
             RemoveSpot();
-            beam?.Update(Map, Position, aimHeading, 0f, SearchlightSettings.Diameter);
+            beam?.Update(Map, Position, aimHeading, 0f, SearchlightSettings.Diameter, searchlights?.PreciseLighting ?? false);
         }
 
         internal void DrawBeam()

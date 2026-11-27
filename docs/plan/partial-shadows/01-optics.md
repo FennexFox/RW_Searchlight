@@ -38,12 +38,12 @@
 
 ## Progress
 
-- Not started.
+- Implemented geometry, rendering, map refresh and gameplay lighting.
 
 ## Decision log
 
-- No decisions recorded yet.
+- Use the existing shader with a padded 16-level visual alpha atlas. Gameplay retains full transmission precision until final RGB quantization.
 
 ## Outcomes / Retrospective
 
-- Not completed yet.
+- Geometry tests passed. Both production packages built without warnings on 1.6.4871 and 1.7.5021 and passed VerifyPackage.ps1.

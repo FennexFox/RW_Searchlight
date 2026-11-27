@@ -111,6 +111,14 @@ beam can gain light independently of the light's selected target. Where beams
 overlap, the stronger contribution applies. Changing the setting affects every
 map in the current save.
 
+In **Reached beam cells**, cover casts a directional shadow on both the
+visible beam and the ground light used by the game. A stone chunk blocks 50%
+of the light behind it. Pawns with a defined cover value use it. Other pawns
+block 35% per unit of current body size, up to 90%. The cell occupied by the
+first pawn still gets the incoming light. Two ordinary adults in successive
+cells leave about 42% of the original searchlight contribution behind them.
+In a shared cell only the strongest cover counts.
+
 In **Endpoint only**, actual illumination comes from a vanilla light source
 placed at the reached endpoint. Its physical radius is
 half the beam width at that point. With the default setting, the endpoint

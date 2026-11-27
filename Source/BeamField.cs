@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
+using UnityEngine.Rendering;
 using Verse;
 
 namespace DirectedSearchlights
@@ -13,6 +14,7 @@ namespace DirectedSearchlights
         private const float CornerOffset = 0.005f;
         private const int GradientStepsPerCell = 10;
         private static readonly Texture2D[] Gradients = new Texture2D[6 * GradientStepsPerCell + 1];
+        private static readonly Texture2D[] ShadowGradients = new Texture2D[Gradients.Length];
 
         private Mesh mesh;
         private bool meshDirty;
@@ -50,6 +52,11 @@ namespace DirectedSearchlights
         private Map sampledMap;
         private bool hasSampleSnapshot;
         private bool hasPotentialBlockingLane;
+        private readonly BeamShadowField shadows = new BeamShadowField();
+        private readonly BeamShadowGeometry shadowGeometry = new BeamShadowGeometry();
+        private bool preciseShadows;
+        private bool shadowsDirty;
+        internal int ShadowInvalidationRebuildCount { get; private set; }
 
         public IntVec3 CenterCell { get; private set; } = IntVec3.Invalid;
         internal int Revision { get; private set; }
@@ -62,12 +69,16 @@ namespace DirectedSearchlights
         }
 
         public void Update(Map newMap, IntVec3 newOrigin, float newHeading, float newRange, float newDiameter)
+            => Update(newMap, newOrigin, newHeading, newRange, newDiameter, false);
+
+        public void Update(Map newMap, IntVec3 newOrigin, float newHeading, float newRange, float newDiameter, bool preciseShadows)
         {
             newHeading = Normalize(newHeading);
             newRange = Mathf.Max(0f, newRange);
             newDiameter = Mathf.Clamp(newDiameter, 2f, 6f);
             int tick = Find.TickManager == null ? 0 : Find.TickManager.TicksGame;
-            if (map == newMap && origin == newOrigin && Mathf.Abs(Mathf.DeltaAngle(heading, newHeading)) < 0.01f
+            if (!shadowsDirty && this.preciseShadows == preciseShadows && map == newMap && origin == newOrigin
+                && Mathf.Abs(Mathf.DeltaAngle(heading, newHeading)) < 0.01f
                 && Mathf.Abs(range - newRange) < 0.01f && Mathf.Abs(diameter - newDiameter) < 0.01f)
             {
                 if (tick == lastRebuildTick || (tick + origin.x * 7 + origin.z) % 15 != 0) return;
@@ -80,7 +91,17 @@ namespace DirectedSearchlights
             range = newRange;
             diameter = newDiameter;
             lastRebuildTick = tick;
+            this.preciseShadows = preciseShadows;
+            if (shadowsDirty) ShadowInvalidationRebuildCount++;
+            shadowsDirty = false;
             Rebuild();
+        }
+
+        internal bool InvalidateShadows(IntVec3 cell)
+        {
+            if (!preciseShadows || !shadows.CouldAffect(cell)) return false;
+            shadowsDirty = true;
+            return true;
         }
 
         // Test a cell on demand. The MVP has one endpoint, so tracing the entire
@@ -112,10 +133,15 @@ namespace DirectedSearchlights
             {
                 if (mesh == null) { mesh = new Mesh(); mesh.MarkDynamic(); }
                 else mesh.Clear();
+                if (vertices.Count > ushort.MaxValue && mesh.indexFormat != IndexFormat.UInt32)
+                    mesh.indexFormat = IndexFormat.UInt32;
                 mesh.SetVertices(vertices);
                 mesh.SetUVs(0, uvs);
                 mesh.SetTriangles(triangles, 0);
-                material.mainTexture = GradientTexture(gradientDiameterStep);
+                material.mainTexture = shadows.HasCover
+                    ? ShadowGradients[gradientDiameterStep] ?? (ShadowGradients[gradientDiameterStep] =
+                        BeamShadowGradient.Create((float)gradientDiameterStep / GradientStepsPerCell))
+                    : GradientTexture(gradientDiameterStep);
                 meshDirty = false;
             }
             Graphics.DrawMesh(mesh, Matrix4x4.identity, material, 0);
@@ -128,6 +154,7 @@ namespace DirectedSearchlights
             if (!hasReachedBounds || map == null || !pose.IsValid) return;
 
             bool traceForBlockers = hasPotentialBlockingLane;
+            bool sampleShadows = shadows.HasCover;
             for (int forwardStep = 0; forwardStep <= pose.ScanMajorSteps; forwardStep++)
             {
                 pose.GetScanRowBounds(forwardStep, out bool xMajor, out int relativeMajor,
@@ -150,8 +177,13 @@ namespace DirectedSearchlights
                         if (reached < rayLength - 0.0001f) continue;
                     }
 
-                    IntVec3 cell = new IntVec3(x, 0, z);
-                    destination[map.cellIndices.CellToIndex(cell)] = BeamLightField.IntensityAt(pose, lane, depth);
+                    byte intensity = BeamLightField.IntensityAt(pose, lane, depth);
+                    if (sampleShadows)
+                    {
+                        float transmission = shadowGeometry.Transmission(pose, shadows.Cells, lane, depth);
+                        intensity = BeamShadowGeometry.ApplyTransmission(intensity, transmission);
+                    }
+                    if (intensity > 0) destination[map.cellIndices.CellToIndex(new IntVec3(x, 0, z))] = intensity;
                 }
             }
         }
@@ -167,6 +199,9 @@ namespace DirectedSearchlights
             lastRebuildTick = int.MinValue;
             hasReachedBounds = false;
             pose = default;
+            preciseShadows = false;
+            shadowsDirty = false;
+            shadows.Clear();
             CenterCell = IntVec3.Invalid;
         }
 
@@ -247,7 +282,7 @@ namespace DirectedSearchlights
             triangles.Clear();
             if (map == null || !origin.InBounds(map) || range <= 0f)
             {
-                UpdateSampleRevision();
+                UpdateSampleRevision(shadows.Refresh(map, pose, false));
                 return;
             }
 
@@ -259,7 +294,11 @@ namespace DirectedSearchlights
             float halfAngleRadians = halfAngle * Mathf.Deg2Rad;
             float capDepth = pose.CapDepth;
             float bodyLength = pose.BodyLength;
-            if (bodyLength <= 0f) return;
+            if (bodyLength <= 0f)
+            {
+                UpdateSampleRevision(shadows.Refresh(map, pose, false));
+                return;
+            }
             float spread = pose.Spread;
             // Short aims can hit the angle limit and be narrower than the configured diameter.
             gradientDiameterStep = Mathf.Clamp(Mathf.RoundToInt(2f * capDepth * GradientStepsPerCell),
@@ -339,39 +378,32 @@ namespace DirectedSearchlights
                 }
             }
             hasPotentialBlockingLane = relevantBlockers.Count > 0 && needsClipping;
-            UpdateSampleRevision();
-            if (needsClipping) lanes.Sort();
+            UpdateSampleRevision(shadows.Refresh(map, pose, preciseShadows));
+            if (shadows.HasCover) BeamShadowGeometry.AddCornerLanes(pose, shadows.Cells, lanes);
+            if (needsClipping || shadows.HasCover) lanes.Sort();
             MeshPoseCount++;
             vertices.Clear();
             uvs.Clear();
             Vector3 lens = new Vector3(origin.x + 0.5f, overlayHeight, origin.z + 0.5f);
+            if (shadows.HasCover)
+            {
+                BuildShadowedMesh(lens, needsClipping);
+                return;
+            }
+
             float previous = float.NegativeInfinity;
             foreach (float lane in lanes)
             {
                 if (lane - previous < 0.00001f) continue;
                 previous = lane;
-                pose.GetLaneRay(lane, out float offsetX, out float offsetZ, out float rayX, out float rayZ);
-                Vector3 start = lens + new Vector3(offsetX, 0f, offsetZ);
-                Vector3 ray = new Vector3(rayX, 0f, rayZ);
-                float u = (lane + 1f) * 0.5f;
-                float limit = BeamGrid.VisualRayLimit(bodyLength, capDepth, u);
-                float depth = limit;
-                if (needsClipping)
-                {
-                    float rayScale = ray.magnitude;
-                    Vector3 direction = ray / rayScale;
-                    float traveled = Trace(origin, direction.x, direction.z, limit * rayScale,
-                        out _, offsetX, offsetZ);
-                    depth = Mathf.Min(limit, traveled / rayScale);
-                    VisualRayTraceCount++;
-                }
-                float bodyDepth = Mathf.Min(bodyLength, depth);
-                vertices.Add(start);
-                vertices.Add(start + ray * bodyDepth);
-                vertices.Add(start + ray * depth);
-                uvs.Add(new Vector2(u, 0f));
-                uvs.Add(new Vector2(u, BeamGrid.GradientV(bodyLength, limit, bodyDepth)));
-                uvs.Add(new Vector2(u, BeamGrid.GradientV(bodyLength, limit, depth)));
+                RenderLane strip = GetRenderLane(lens, lane, needsClipping);
+                float bodyDepth = Mathf.Min(bodyLength, strip.Depth);
+                vertices.Add(strip.Start);
+                vertices.Add(strip.Start + strip.Ray * bodyDepth);
+                vertices.Add(strip.Start + strip.Ray * strip.Depth);
+                uvs.Add(new Vector2(strip.U, 0f));
+                uvs.Add(new Vector2(strip.U, BeamGrid.GradientV(bodyLength, strip.Limit, bodyDepth)));
+                uvs.Add(new Vector2(strip.U, BeamGrid.GradientV(bodyLength, strip.Limit, strip.Depth)));
             }
             for (int a = 0; a + 5 < vertices.Count; a += 3)
             {
@@ -397,9 +429,116 @@ namespace DirectedSearchlights
             }
         }
 
-        private void UpdateSampleRevision()
+        private RenderLane GetRenderLane(Vector3 lens, float lane, bool needsClipping)
         {
-            bool changed = !hasSampleSnapshot || !ReferenceEquals(sampledMap, map) ||
+            pose.GetLaneRay(lane, out float offsetX, out float offsetZ, out float rayX, out float rayZ);
+            Vector3 start = lens + new Vector3(offsetX, 0f, offsetZ);
+            Vector3 ray = new Vector3(rayX, 0f, rayZ);
+            float u = (lane + 1f) * 0.5f;
+            float limit = BeamGrid.VisualRayLimit(pose.BodyLength, pose.CapDepth, u);
+            float depth = limit;
+            if (needsClipping)
+            {
+                float rayScale = ray.magnitude;
+                Vector3 direction = ray / rayScale;
+                float traveled = Trace(origin, direction.x, direction.z, limit * rayScale,
+                    out _, offsetX, offsetZ);
+                depth = Mathf.Min(limit, traveled / rayScale);
+                VisualRayTraceCount++;
+            }
+
+            return new RenderLane(start, ray, u, limit, depth);
+        }
+
+        private void BuildShadowedMesh(Vector3 lens, bool needsClipping)
+        {
+            float leftLane = lanes[0];
+            RenderLane left = GetRenderLane(lens, leftLane, needsClipping);
+            for (int i = 1; i < lanes.Count; i++)
+            {
+                float rightLane = lanes[i];
+                if (rightLane - leftLane < 0.00001f) continue;
+                RenderLane right = GetRenderLane(lens, rightLane, needsClipping);
+                float leftStart = 0f, rightStart = 0f;
+                float transmission = 1f;
+                int level = BeamShadowGradient.FullTransmission;
+
+                // Between corner lanes the same cell faces bound the strips.
+                // End one band at each object's exit before reducing the alpha.
+                foreach (BeamShadowGeometry.Hit hit in shadowGeometry.VisualHits(pose, shadows.Cells, leftLane, rightLane))
+                {
+                    transmission *= hit.Cell.Transmission;
+                    int nextLevel = BeamShadowGradient.Level(transmission);
+                    if (nextLevel == level) continue;
+
+                    float leftExit = Mathf.Clamp(BeamShadowGeometry.BoundaryExit(pose, hit.Cell, leftLane), leftStart, left.Depth);
+                    float rightExit = Mathf.Clamp(BeamShadowGeometry.BoundaryExit(pose, hit.Cell, rightLane), rightStart, right.Depth);
+                    AddShadowBand(left, right, leftStart, rightStart, leftExit, rightExit, level);
+                    leftStart = leftExit;
+                    rightStart = rightExit;
+                    level = nextLevel;
+                    if (level == 0) break;
+                }
+                AddShadowBand(left, right, leftStart, rightStart, left.Depth, right.Depth, level);
+                leftLane = rightLane;
+                left = right;
+            }
+        }
+
+        private void AddShadowBand(RenderLane left, RenderLane right, float leftStart, float rightStart,
+            float leftEnd, float rightEnd, int level)
+        {
+            // Gradient V has a slope change at the focus, even within one band.
+            float leftFocus = Mathf.Clamp(pose.BodyLength, leftStart, leftEnd);
+            float rightFocus = Mathf.Clamp(pose.BodyLength, rightStart, rightEnd);
+            AddShadowQuad(left, right, leftStart, rightStart, leftFocus, rightFocus, level);
+            AddShadowQuad(left, right, leftFocus, rightFocus, leftEnd, rightEnd, level);
+        }
+
+        private void AddShadowQuad(RenderLane left, RenderLane right, float leftStart, float rightStart,
+            float leftEnd, float rightEnd, int level)
+        {
+            if (leftStart >= leftEnd && rightStart >= rightEnd) return;
+            int a = vertices.Count;
+            AddShadowVertex(left, leftStart, level);
+            AddShadowVertex(left, leftEnd, level);
+            AddShadowVertex(right, rightStart, level);
+            AddShadowVertex(right, rightEnd, level);
+            triangles.Add(a);
+            triangles.Add(a + 3);
+            triangles.Add(a + 2);
+            triangles.Add(a);
+            triangles.Add(a + 1);
+            triangles.Add(a + 3);
+        }
+
+        private void AddShadowVertex(RenderLane lane, float depth, int level)
+        {
+            vertices.Add(lane.Start + lane.Ray * depth);
+            uvs.Add(BeamShadowGradient.UV(lane.U, BeamGrid.GradientV(pose.BodyLength, lane.Limit, depth), level));
+        }
+
+        private readonly struct RenderLane
+        {
+            internal readonly Vector3 Start;
+            internal readonly Vector3 Ray;
+            internal readonly float U;
+            internal readonly float Limit;
+            internal readonly float Depth;
+
+            internal RenderLane(Vector3 start, Vector3 ray, float u, float limit, float depth)
+            {
+                Start = start;
+                Ray = ray;
+                U = u;
+                Limit = limit;
+                Depth = depth;
+            }
+        }
+
+        private void UpdateSampleRevision(bool shadowsChanged)
+        {
+            bool changed = shadowsChanged || !hasSampleSnapshot || !ReferenceEquals(sampledMap, map) ||
                 !SameSamplePose(sampledPose, pose) || previousRelevantBlockers.Count != relevantBlockers.Count;
             if (!changed)
             {

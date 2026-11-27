@@ -21,6 +21,15 @@ namespace DirectedSearchlights
         private bool sunAboveHorizon;
         private ThingListChangedCallbacks obstacleCallbacks;
         private int edificeRevision;
+        private readonly Dictionary<Thing, CellRect> shadowThingRects = new Dictionary<Thing, CellRect>();
+        private readonly List<Pawn> shadowPawns = new List<Pawn>();
+        private readonly HashSet<Building_Searchlight> shadowInvalidatedLightsThisTick = new HashSet<Building_Searchlight>();
+        private bool shadowThingsInitialized;
+        private int shadowDiagnosticsTick = int.MinValue;
+
+        internal long ShadowInvalidationNotifications { get; private set; }
+        internal long ShadowInvalidatedLampCount { get; private set; }
+        internal long ShadowInvalidationRebuildCount => lights.Sum(light => (long)light.ShadowInvalidationRebuildCount);
 
         public SearchlightMap(Map map) : base(map)
         {
@@ -72,18 +81,141 @@ namespace DirectedSearchlights
             get
             {
                 if (obstacleCallbacks == null)
-                {
-                    obstacleCallbacks = map.thingListChangedCallbacks;
-                    obstacleCallbacks.onThingAdded += EdificeChanged;
-                    obstacleCallbacks.onThingRemoved += EdificeChanged;
-                }
+                    EnsureThingCallbacks();
                 return edificeRevision;
             }
+        }
+
+        private void EnsureThingCallbacks()
+        {
+            if (obstacleCallbacks != null) return;
+            obstacleCallbacks = map.thingListChangedCallbacks;
+            obstacleCallbacks.onThingAdded += ThingAdded;
+            obstacleCallbacks.onThingRemoved += ThingRemoved;
+        }
+
+        private void ThingAdded(Thing thing)
+        {
+            EdificeChanged(thing);
+            if (!PreciseLighting) return;
+            if (!TrackShadowThing(thing)) return;
+            InvalidateShadowRect(thing.OccupiedRect());
+        }
+
+        private void ThingRemoved(Thing thing)
+        {
+            EdificeChanged(thing);
+            if (!PreciseLighting) return;
+            if (shadowThingRects.TryGetValue(thing, out CellRect oldRect))
+            {
+                ForgetShadowThing(thing);
+                InvalidateShadowRect(oldRect);
+                return;
+            }
+
+            if (BeamShadowField.Opacity(thing) > 0f)
+                InvalidateShadowRect(thing.OccupiedRect());
         }
 
         private void EdificeChanged(Thing thing)
         {
             if (thing is Building && thing.def.IsEdifice()) edificeRevision++;
+        }
+
+        private bool TrackShadowThing(Thing thing)
+        {
+            if (thing == null || thing.Destroyed || !thing.Spawned || thing.Map != map ||
+                BeamShadowField.Opacity(thing) <= 0f) return false;
+
+            shadowThingRects[thing] = thing.OccupiedRect();
+            if (thing is Pawn pawn && !shadowPawns.Contains(pawn)) shadowPawns.Add(pawn);
+            return true;
+        }
+
+        private void ForgetShadowThing(Thing thing)
+        {
+            shadowThingRects.Remove(thing);
+            if (thing is Pawn pawn) shadowPawns.Remove(pawn);
+        }
+
+        private void InitializeShadowThings()
+        {
+            if (!PreciseLighting) return;
+            EnsureThingCallbacks();
+            if (shadowThingsInitialized) return;
+            foreach (Thing thing in map.listerThings.AllThings) TrackShadowThing(thing);
+            shadowThingsInitialized = true;
+        }
+
+        internal void SetPreciseShadowTracking(bool enabled)
+        {
+            if (enabled)
+            {
+                shadowThingsInitialized = false;
+                InitializeShadowThings();
+                return;
+            }
+
+            shadowThingRects.Clear();
+            shadowPawns.Clear();
+            shadowInvalidatedLightsThisTick.Clear();
+            shadowThingsInitialized = false;
+        }
+
+        private void PollShadowPawns()
+        {
+            for (int i = shadowPawns.Count - 1; i >= 0; i--)
+            {
+                Pawn pawn = shadowPawns[i];
+                if (pawn.Destroyed || !pawn.Spawned || pawn.Map != map || BeamShadowField.Opacity(pawn) <= 0f)
+                {
+                    if (shadowThingRects.TryGetValue(pawn, out CellRect previousRect))
+                        InvalidateShadowRect(previousRect);
+                    ForgetShadowThing(pawn);
+                    continue;
+                }
+
+                CellRect currentRect = pawn.OccupiedRect();
+                if (!shadowThingRects.TryGetValue(pawn, out CellRect oldRect))
+                {
+                    shadowThingRects[pawn] = currentRect;
+                    InvalidateShadowRect(currentRect);
+                    continue;
+                }
+                if (SameRect(oldRect, currentRect)) continue;
+
+                shadowThingRects[pawn] = currentRect;
+                InvalidateShadowRect(oldRect);
+                InvalidateShadowRect(currentRect);
+            }
+        }
+
+        private static bool SameRect(CellRect left, CellRect right)
+            => left.minX == right.minX && left.minZ == right.minZ &&
+                left.maxX == right.maxX && left.maxZ == right.maxZ;
+
+        private void InvalidateShadowRect(CellRect rect)
+        {
+            for (int x = rect.minX; x <= rect.maxX; x++)
+            for (int z = rect.minZ; z <= rect.maxZ; z++)
+                InvalidateShadowCell(new IntVec3(x, 0, z));
+        }
+
+        private void InvalidateShadowCell(IntVec3 cell)
+        {
+            if (!cell.IsValid || !cell.InBounds(map) || !PreciseLighting) return;
+            if (shadowDiagnosticsTick != Find.TickManager.TicksGame)
+            {
+                shadowDiagnosticsTick = Find.TickManager.TicksGame;
+                shadowInvalidatedLightsThisTick.Clear();
+            }
+
+            ShadowInvalidationNotifications++;
+            foreach (Building_Searchlight light in lights)
+            {
+                if (!light.InvalidateShadows(cell)) continue;
+                if (shadowInvalidatedLightsThisTick.Add(light)) ShadowInvalidatedLampCount++;
+            }
         }
 
         public void Register(Building_Searchlight light) => Register(light, false);
@@ -105,6 +237,7 @@ namespace DirectedSearchlights
 
         public override void FinalizeInit()
         {
+            if (PreciseLighting) InitializeShadowThings();
             if (!restoring) return;
             int tick = Find.TickManager.TicksGame;
             foreach (Building_Searchlight light in lights) targets.Reconcile(light, tick);
@@ -118,7 +251,17 @@ namespace DirectedSearchlights
             alerts.ExposeData();
         }
 
-        public override void MapComponentTick() => alerts.Tick(Find.TickManager.TicksGame, lights);
+        public override void MapComponentTick()
+        {
+            alerts.Tick(Find.TickManager.TicksGame, lights);
+            if (!PreciseLighting)
+            {
+                if (shadowThingsInitialized) SetPreciseShadowTracking(false);
+                return;
+            }
+            if (!shadowThingsInitialized) InitializeShadowThings();
+            else PollShadowPawns();
+        }
 
         // MapComponentTick runs after normal thing ticks. The first lamp starts
         // the batch so all due lamps have their assignment before they aim.
@@ -147,8 +290,8 @@ namespace DirectedSearchlights
             LightingIntegration.ForgetMap(map);
             if (obstacleCallbacks != null)
             {
-                obstacleCallbacks.onThingAdded -= EdificeChanged;
-                obstacleCallbacks.onThingRemoved -= EdificeChanged;
+                obstacleCallbacks.onThingAdded -= ThingAdded;
+                obstacleCallbacks.onThingRemoved -= ThingRemoved;
                 obstacleCallbacks = null;
             }
             foreach (Building_Searchlight light in lights)
@@ -159,6 +302,10 @@ namespace DirectedSearchlights
             lights.Clear();
             targets.Clear();
             alerts.Clear();
+            shadowThingRects.Clear();
+            shadowPawns.Clear();
+            shadowInvalidatedLightsThisTick.Clear();
+            shadowThingsInitialized = false;
         }
     }
 }

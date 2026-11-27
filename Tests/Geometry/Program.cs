@@ -42,6 +42,63 @@ static class Program
         return true;
     }
 
+    static void RunShadowGeometryTests()
+    {
+        var geometry = new BeamShadowGeometry();
+        var pose = new BeamPose(0, 0, 0f, 10f, 4f);
+        var multiCellCover = new[]
+        {
+            new BeamShadowGeometry.CoverCell(0, 2, 41, 0.5f),
+            new BeamShadowGeometry.CoverCell(0, 3, 41, 0.5f)
+        };
+        Check(geometry.Transmission(pose, multiCellCover, 0f, 2.8f) == 1f,
+            "destination inside one multi-cell blocker keeps full transmission");
+        Check(Math.Abs(geometry.Transmission(pose, multiCellCover, 0f, 3.5f) - 0.5f) < 0.0001f,
+            "one multi-cell blocker attenuates once after its farthest occupied cell");
+
+        var diagonalPose = new BeamPose(0, 0, 45f, 10f, 4f);
+        var tangentCover = new[] { new BeamShadowGeometry.CoverCell(0, 1, 52, 0f) };
+        Check(geometry.Transmission(diagonalPose, tangentCover, 0f, 5f) == 1f,
+            "a ray tangent to a cover-cell corner does not attenuate");
+
+        Check(BeamShadowGeometry.PreferCover(0.7f, 4, 0.7f, 9) &&
+              !BeamShadowGeometry.PreferCover(0.7f, 9, 0.7f, 4) &&
+              !BeamShadowGeometry.PreferCover(0f, 1, 0f, 9),
+            "same-cell strongest-cover ties use the lower thing ID and ignore zero cover");
+
+        var mixedAlignedCover = new[]
+        {
+            new BeamShadowGeometry.CoverCell(0, 2, 61, 0.6f),
+            new BeamShadowGeometry.CoverCell(0, 4, 72, 0.4f)
+        };
+        Check(Math.Abs(geometry.Transmission(pose, mixedAlignedCover, 0f, 5f) - 0.24f) < 0.0001f,
+            "distinct aligned objects multiply their transmissions once each");
+
+        var lowOpacityItem = new[] { new BeamShadowGeometry.CoverCell(0, 2, 83, 0.9f) };
+        Check(Math.Abs(geometry.Transmission(pose, lowOpacityItem, 0f, 3f) - 0.9f) < 0.0001f,
+            "a low-opacity aligned item causes proportionate attenuation");
+
+        var widePose = new BeamPose(0, 0, 0f, 60f, 6f);
+        var lateralEdgeItem = new[] { new BeamShadowGeometry.CoverCell(2, 41, 94, 0.25f) };
+        Check(Math.Abs(geometry.Transmission(widePose, lateralEdgeItem, 1f, 60f) - 0.25f) < 0.0001f &&
+              geometry.Transmission(widePose, lateralEdgeItem, 0f, 60f) == 1f,
+            "an item at the beam's lateral edge affects only the edge lane");
+
+        Check(BeamShadowGeometry.ApplyTransmission(255, 1f) == 255 &&
+              BeamShadowGeometry.ApplyTransmission(255, 0.65f) == 23 &&
+              BeamShadowGeometry.ApplyTransmission(255, 0.4225f) == 15,
+            "saturated RGB is clipped before blocker transmission and rounded without byte overflow");
+
+        Check(Math.Abs(BeamShadowGeometry.PawnOpacity(0f, 2f) - 0.7f) < 0.0001f &&
+              Math.Abs(BeamShadowGeometry.PawnOpacity(0f, 0.5f) - 0.175f) < 0.0001f &&
+              Math.Abs(BeamShadowGeometry.PawnOpacity(0f, 1f) - 0.35f) < 0.0001f &&
+              BeamShadowGeometry.PawnOpacity(0f, 0f) == 0f &&
+              BeamShadowGeometry.PawnOpacity(0f, -1f) == 0f &&
+              Math.Abs(BeamShadowGeometry.PawnOpacity(0f, 4f) - 0.9f) < 0.0001f &&
+              Math.Abs(BeamShadowGeometry.PawnOpacity(0.4f, 2f) - 0.4f) < 0.0001f,
+            "pawn BodySize fallback clamps at zero, scales small values, caps at 0.9, and yields to explicit cover");
+    }
+
     static bool BlockerBoundsContainEverySampleRay(BeamPose pose, HashSet<(int, int)> candidates)
     {
         foreach ((int x, int z) in candidates)
@@ -239,6 +296,8 @@ static class Program
                 "renderer clipping bound contains every sampled ray at heading " + blockerHeadings[h] +
                 ", range " + blockerRanges[r] + ", diameter " + scanDiameters[d]);
         }
+
+        RunShadowGeometryTests();
 
         if (failures != 0) Environment.Exit(1);
         Console.WriteLine("Geometry checks passed.");

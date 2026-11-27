@@ -40,7 +40,9 @@ namespace DirectedSearchlights
             mode = next;
             foreach (Map map in Find.Maps)
             {
-                map.GetComponent<SearchlightMap>().RestoreLighting();
+                SearchlightMap searchlights = map.GetComponent<SearchlightMap>();
+                searchlights.SetPreciseShadowTracking(next == SearchlightLightingMode.PreciseField);
+                searchlights.RestoreLighting();
                 map.glowGrid.GlowGridUpdate_First();
             }
             if (next == SearchlightLightingMode.LegacyEndpoint) LightingIntegration.Release();
