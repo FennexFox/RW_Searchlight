@@ -25,6 +25,7 @@ namespace DirectedSearchlights
         private readonly List<Pawn> shadowPawns = new List<Pawn>();
         private readonly HashSet<Building_Searchlight> shadowInvalidatedLightsThisTick = new HashSet<Building_Searchlight>();
         private bool shadowThingsInitialized;
+        private int lastShadowPollTick = int.MinValue;
         private int shadowDiagnosticsTick = int.MinValue;
 
         internal long ShadowInvalidationNotifications { get; private set; }
@@ -125,10 +126,12 @@ namespace DirectedSearchlights
         private bool TrackShadowThing(Thing thing)
         {
             if (thing == null || thing.Destroyed || !thing.Spawned || thing.Map != map ||
-                BeamShadowField.Opacity(thing) <= 0f) return false;
+                (thing is not Pawn && BeamShadowField.Opacity(thing) <= 0f)) return false;
 
+            // Keep pawns whose current growth stage gives them zero opacity:
+            // their cell moves must still be observed when their body size changes.
+            if (thing is Pawn pawn && !shadowThingRects.ContainsKey(pawn)) shadowPawns.Add(pawn);
             shadowThingRects[thing] = thing.OccupiedRect();
-            if (thing is Pawn pawn && !shadowPawns.Contains(pawn)) shadowPawns.Add(pawn);
             return true;
         }
 
@@ -149,6 +152,7 @@ namespace DirectedSearchlights
 
         internal void SetPreciseShadowTracking(bool enabled)
         {
+            lastShadowPollTick = int.MinValue;
             if (enabled)
             {
                 shadowThingsInitialized = false;
@@ -167,7 +171,7 @@ namespace DirectedSearchlights
             for (int i = shadowPawns.Count - 1; i >= 0; i--)
             {
                 Pawn pawn = shadowPawns[i];
-                if (pawn.Destroyed || !pawn.Spawned || pawn.Map != map || BeamShadowField.Opacity(pawn) <= 0f)
+                if (pawn.Destroyed || !pawn.Spawned || pawn.Map != map)
                 {
                     if (shadowThingRects.TryGetValue(pawn, out CellRect previousRect))
                         InvalidateShadowRect(previousRect);
@@ -256,21 +260,25 @@ namespace DirectedSearchlights
             alerts.ExposeData();
         }
 
-        public override void MapComponentTick()
+        public override void MapComponentTick() => alerts.Tick(Find.TickManager.TicksGame, lights);
+
+        // Poll once before any lamp samples its beam. This also catches moves
+        // made between simulation ticks, after the previous map post-tick.
+        internal void BeforeLightTick(int tick)
         {
-            alerts.Tick(Find.TickManager.TicksGame, lights);
-            if (!PreciseLighting)
+            if (lastShadowPollTick != tick)
             {
-                if (shadowThingsInitialized) SetPreciseShadowTracking(false);
-                return;
+                lastShadowPollTick = tick;
+                if (PreciseLighting)
+                {
+                    if (!shadowThingsInitialized) InitializeShadowThings();
+                    PollShadowPawns();
+                }
+                else if (shadowThingsInitialized) SetPreciseShadowTracking(false);
             }
-            if (!shadowThingsInitialized) InitializeShadowThings();
-            else PollShadowPawns();
+            targets.Tick(tick, lights);
         }
 
-        // MapComponentTick runs after normal thing ticks. The first lamp starts
-        // the batch so all due lamps have their assignment before they aim.
-        internal void BeforeLightTick(int tick) => targets.Tick(tick, lights);
         internal void Reconcile(Building_Searchlight light, int tick) => targets.Reconcile(light, tick);
         internal void ChangeLock(Building_Searchlight light, Pawn pawn, int tick) => targets.ChangeLock(light, pawn, tick);
         internal void ResetRedistribution(Building_Searchlight light) => targets.ResetRedistribution(light);
