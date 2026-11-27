@@ -106,7 +106,8 @@ namespace SearchlightVisualHarness
                 map.roofGrid.SetRoof(cell, null);
                 if (preciseLighting && cell.Fogged(map)) map.fogGrid.Unfog(cell);
                 foreach (Thing thing in cell.GetThingList(map).ToList())
-                    if (thing is Plant || thing.def.passability == Traversability.Impassable ||
+                    if ((preciseLighting && (thing is Pawn || thing.def.category == ThingCategory.Item ||
+                        thing.def.category == ThingCategory.Building)) || thing is Plant || thing.def.passability == Traversability.Impassable ||
                         thing.TryGetComp<CompGlower>() != null)
                         thing.Destroy(DestroyMode.Vanish);
             }

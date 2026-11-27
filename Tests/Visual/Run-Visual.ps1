@@ -83,7 +83,7 @@ try {
         throw "Visual harness failed with exit code $($process.ExitCode). Profile: $profile"
     }
     if ($PreciseLighting) {
-        foreach ($scene in '18-tiles','60-tiles','60-tiles-tip','partial-wall','full-wall') {
+        foreach ($scene in '18-tiles','60-tiles','60-tiles-tip','partial-wall','full-wall','empty-lane','pawn-shadow') {
             foreach ($suffix in '', '-mask') {
                 $capture = Get-Item -LiteralPath (Join-Path $profile "$scene$suffix.png")
                 if ($capture.Length -le 0) { throw "Empty precise-lighting capture: $capture" }

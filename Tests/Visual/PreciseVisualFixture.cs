@@ -7,14 +7,15 @@ using DirectedSearchlights;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Verse.AI;
 
 namespace SearchlightVisualHarness
 {
     internal sealed class PreciseVisualFixture
     {
-        private static readonly string[] Names = { "18-tiles", "60-tiles", "60-tiles-tip", "partial-wall", "full-wall" };
-        private static readonly int[] CameraCenters = { 9, 30, 57, 29, 24 };
-        private static readonly float[] CameraSizes = { 10f, 27f, 8f, 15f, 16f };
+        private static readonly string[] Names = { "18-tiles", "60-tiles", "60-tiles-tip", "partial-wall", "full-wall", "empty-lane", "pawn-shadow" };
+        private static readonly int[] CameraCenters = { 9, 30, 57, 29, 24, 38, 38 };
+        private static readonly float[] CameraSizes = { 10f, 27f, 8f, 15f, 16f, 12f, 12f };
         private const BindingFlags InstanceFields = BindingFlags.Instance | BindingFlags.NonPublic;
         private readonly FieldInfo beamField = typeof(Building_Searchlight).GetField("beam", InstanceFields);
         private readonly FieldInfo meshField = typeof(BeamField).GetField("mesh", InstanceFields);
@@ -27,6 +28,7 @@ namespace SearchlightVisualHarness
         private readonly Action<string> record;
         private readonly Action<string> finish;
         private readonly VisualLightMask mask;
+        private readonly List<Thing> fixtureWalls = new();
         private int scene;
         private int readyTick;
         private int captureFrame;
@@ -109,6 +111,18 @@ namespace SearchlightVisualHarness
             if (scene == 1) lamp.SetAimCell(East(60));
             if (scene == 3) PlaceWall(1, 3);
             if (scene == 4) PlaceWall(-3, 0);
+            if (scene == 5)
+            {
+                foreach (Thing wall in fixtureWalls) wall.Destroy();
+            }
+            if (scene == 6)
+            {
+                var pawn = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfPlayer);
+                pawn.ageTracker.AgeBiologicalTicks = 30L * GenDate.TicksPerYear;
+                GenSpawn.Spawn(pawn, East(36), map);
+                pawn.jobs.StartJob(JobMaker.MakeJob(JobDefOf.Wait), JobCondition.InterruptForced);
+                record($"shadow caster={pawn.ThingID}; cell={pawn.Position}; bodySize={pawn.BodySize}");
+            }
             readyTick = Tick + 25;
             Find.TickManager.CurTimeSpeed = TimeSpeed.Superfast;
         }
@@ -116,7 +130,7 @@ namespace SearchlightVisualHarness
         private void PlaceWall(int firstZ, int lastZ)
         {
             for (int z = firstZ; z <= lastZ; z++)
-                GenSpawn.Spawn(ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.Steel), East(30, z), map);
+                fixtureWalls.Add(GenSpawn.Spawn(ThingMaker.MakeThing(ThingDefOf.Wall, ThingDefOf.Steel), East(30, z), map));
         }
 
         private void VerifyScene()
@@ -168,11 +182,20 @@ namespace SearchlightVisualHarness
                     "uploaded beam ends at the fully blocked wall's near face");
             }
 
+            if (scene >= 5)
+            {
+                float own = map.glowGrid.GroundGlowAt(East(36), ignoreSky: true);
+                float behind = map.glowGrid.GroundGlowAt(East(40), ignoreSky: true);
+                float expectedBehind = scene == 6 ? 0.325f : 0.50f;
+                Check(Math.Abs(own - 0.50f) < 0.015f && Math.Abs(behind - expectedBehind) < 0.015f,
+                    $"{Names[scene]} ground glow, caster={own}, shadow={behind}");
+            }
             var probes = scene switch
             {
                 0 => new[] { East(9), East(18), East(19), East(9, 3) },
                 1 or 2 => new[] { East(30), East(59, 1), East(60), East(61) },
                 3 => new[] { East(29), East(30, 1), East(45, 1), East(45, -1) },
+                >= 5 => new[] { East(35), East(36), East(40), East(40, 1) },
                 _ => new[] { East(29), East(30), East(31), East(34) }
             };
             int renderChecks = 0;
