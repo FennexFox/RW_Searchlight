@@ -113,7 +113,7 @@ namespace DirectedSearchlights
                 return;
             }
 
-            if (BeamShadowField.Opacity(thing) > 0f)
+            if (BeamShadowField.Opacity(thing) > 0f && thing.Position.InBounds(map))
                 InvalidateShadowRect(thing.OccupiedRect());
         }
 
@@ -196,8 +196,13 @@ namespace DirectedSearchlights
 
         private void InvalidateShadowRect(CellRect rect)
         {
-            for (int x = rect.minX; x <= rect.maxX; x++)
-            for (int z = rect.minZ; z <= rect.maxZ; z++)
+            int minX = Math.Max(0, rect.minX);
+            int minZ = Math.Max(0, rect.minZ);
+            int maxX = Math.Min(map.Size.x - 1, rect.maxX);
+            int maxZ = Math.Min(map.Size.z - 1, rect.maxZ);
+            if (minX > maxX || minZ > maxZ) return;
+            for (int x = minX; x <= maxX; x++)
+            for (int z = minZ; z <= maxZ; z++)
                 InvalidateShadowCell(new IntVec3(x, 0, z));
         }
 
