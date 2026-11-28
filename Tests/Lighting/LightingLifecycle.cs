@@ -9,6 +9,7 @@ using RimWorld;
 using RimWorld.Planet;
 using UnityEngine;
 using Verse;
+using Verse.AI;
 
 namespace SearchlightLightingHarness
 {
@@ -24,6 +25,8 @@ namespace SearchlightLightingHarness
         private bool finished;
         private Map home;
         private Map away;
+        private Pawn homePawn;
+        private Pawn awayPawn;
         private Building_Searchlight homeLamp;
         private Building_Searchlight awayLamp;
         private IntVec3 homeOrigin;
@@ -64,6 +67,7 @@ namespace SearchlightLightingHarness
             ClearArea(home, homeOrigin, 26);
             home.weatherManager.TransitionTo(WeatherDefOf.Clear);
             homeLamp = SpawnLamp(home, homeOrigin);
+            homePawn = SpawnHeldPawn(home, homeOrigin + new IntVec3(10, 0, 0));
 
             PrepareAwayMap();
         }
@@ -76,8 +80,7 @@ namespace SearchlightLightingHarness
             away = GetOrGenerateMapUtility.GetOrGenerateMap(tile, new IntVec3(70, 1, 70), WorldObjectDefOf.Site);
             awayOrigin = away.Center;
             ClearArea(away, awayOrigin, 26);
-            Pawn colonist = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfPlayer);
-            GenSpawn.Spawn(colonist, awayOrigin + new IntVec3(-5, 0, -5), away);
+            awayPawn = SpawnHeldPawn(away, awayOrigin + new IntVec3(10, 0, 0));
             awayLamp = SpawnLamp(away, awayOrigin);
             homeLamp.SetMode(SearchlightMode.Fixed);
             awayLamp.SetMode(SearchlightMode.Fixed);
@@ -93,24 +96,24 @@ namespace SearchlightLightingHarness
             var lighting = Current.Game.GetComponent<SearchlightLightingGame>();
             lighting.SetMode(SearchlightLightingMode.PreciseField);
             Check(lighting.CurrentMode == SearchlightLightingMode.PreciseField, "precise mode enabled with both maps populated");
-            CheckPrecise(home, homeOrigin, "home map while viewing away map");
-            CheckPrecise(away, awayOrigin, "away map while viewing away map");
+            CheckPrecise(home, homeOrigin, homePawn, "home map while viewing away map");
+            CheckPrecise(away, awayOrigin, awayPawn, "away map while viewing away map");
 
             Current.Game.CurrentMap = home;
-            CheckPrecise(home, homeOrigin, "home map after camera switch");
-            CheckPrecise(away, awayOrigin, "away map after camera switch");
+            CheckPrecise(home, homeOrigin, homePawn, "home map after camera switch");
+            CheckPrecise(away, awayOrigin, awayPawn, "away map after camera switch");
             lighting.SetMode(SearchlightLightingMode.LegacyEndpoint);
             CheckLegacy(home, homeOrigin, "home map after disabling precise mode");
             CheckLegacy(away, awayOrigin, "away map after disabling precise mode");
 
             Current.Game.CurrentMap = away;
             lighting.SetMode(SearchlightLightingMode.PreciseField);
-            CheckPrecise(home, homeOrigin, "home map after re-enabling precise mode from away view");
-            CheckPrecise(away, awayOrigin, "away map after re-enabling precise mode");
+            CheckPrecise(home, homeOrigin, homePawn, "home map after re-enabling precise mode from away view");
+            CheckPrecise(away, awayOrigin, awayPawn, "away map after re-enabling precise mode");
             Current.Game.CurrentMap = home;
 
             System.WeakReference<Map> weakMap = RemoveAwayMap();
-            CheckPrecise(home, homeOrigin, "home lighting remains after away map removal");
+            CheckPrecise(home, homeOrigin, homePawn, "home lighting remains after away map removal");
             unloadCycle++;
             RecordCollectedMap(unloadCycle, weakMap);
             if (unloadCycle < 3)
@@ -140,20 +143,27 @@ namespace SearchlightLightingHarness
             IntVec3 origin = homeLamp.Position;
             IntVec3 middle = origin + new IntVec3(10, 0, 0);
             IntVec3 endpoint = origin + new IntVec3(20, 0, 0);
+            homePawn = home.mapPawns.AllPawnsSpawned.FirstOrDefault(pawn => pawn.Position == middle);
+            Check(homePawn != null, "held pawn persisted in the saved lifecycle fixture");
+            Hold(homePawn);
             Check(homeLamp.SpotCell == endpoint, "legacy endpoint glower restored after loading the older save");
-            Check(Artificial(home, middle) < 0.01f, "transient precise field is absent from the migrated save");
+            Check(Artificial(home, middle) < 0.01f, "pawn-local precise sample is absent from the migrated save");
             Check(Artificial(home, endpoint) > 0.05f, "vanilla endpoint illumination remains after migration");
             Finish("PASS reload");
         }
 
-        private static void CheckPrecise(Map map, IntVec3 origin, string label)
+        private static void CheckPrecise(Map map, IntVec3 origin, Pawn pawn, string label)
         {
-            Check(Artificial(map, origin + new IntVec3(10, 0, 0)) > 0.01f, label + " has its own mid-beam illumination");
+            IntVec3 emptyLane = origin + new IntVec3(5, 0, 0);
+            Check(pawn != null && pawn.Spawned && pawn.Map == map && pawn.Position == origin + new IntVec3(10, 0, 0),
+                label + " retains its held pawn in the beam");
+            Check(Artificial(map, pawn.Position) > 0.01f, label + " lights the pawn-local sample");
+            Check(Artificial(map, emptyLane) < 0.01f, label + " leaves empty mid-beam ground dark");
         }
 
         private static void CheckLegacy(Map map, IntVec3 origin, string label)
         {
-            Check(Artificial(map, origin + new IntVec3(10, 0, 0)) < 0.01f, label + " has no mid-beam field");
+            Check(Artificial(map, origin + new IntVec3(10, 0, 0)) < 0.01f, label + " has no pawn-local precise sample");
             Check(Artificial(map, origin + new IntVec3(20, 0, 0)) > 0.05f, label + " retains endpoint illumination");
         }
 
@@ -170,9 +180,11 @@ namespace SearchlightLightingHarness
             if (parent != null && !parent.Destroyed) parent.Destroy();
             Check(!Find.Maps.Contains(removed), "second map removed from the game");
             Check(LightingCount(controller) == 0, "removed map released its sparse lighting samples");
+            Check(ShadowPawnCount(controller) == 0, "removed map released tracked pawn references");
             Check(LightCount(controller) == 0, "removed map released registered lamp references");
             Check(!HasAdapterMapState(removed), "removed map was forgotten by the glow-grid adapter");
             awayLamp = null;
+            awayPawn = null;
             away = null;
             return weakMap;
         }
@@ -212,6 +224,13 @@ namespace SearchlightLightingHarness
             return lights is ICollection collection ? collection.Count : -1;
         }
 
+        private static int ShadowPawnCount(SearchlightMap controller)
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            object pawns = typeof(SearchlightMap).GetField("shadowPawns", flags)?.GetValue(controller);
+            return pawns is ICollection collection ? collection.Count : -1;
+        }
+
         private static Building_Searchlight SpawnLamp(Map map, IntVec3 cell)
         {
             Building_Searchlight lamp = (Building_Searchlight)GenSpawn.Spawn(
@@ -219,6 +238,26 @@ namespace SearchlightLightingHarness
             lamp.GetComp<CompPowerTrader>().PowerOn = true;
             Check(lamp.IsOperating, "lamp powered on " + map);
             return lamp;
+        }
+
+        private static Pawn SpawnHeldPawn(Map map, IntVec3 cell)
+        {
+            Pawn pawn = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfPlayer);
+            GenSpawn.Spawn(pawn, cell, map);
+            var wait = JobMaker.MakeJob(JobDefOf.Wait);
+            wait.expiryInterval = 500000;
+            wait.playerForced = true;
+            pawn.jobs.StartJob(wait, JobCondition.InterruptForced);
+            return pawn;
+        }
+
+        private static void Hold(Pawn pawn)
+        {
+            pawn.pather.StopDead();
+            var wait = JobMaker.MakeJob(JobDefOf.Wait);
+            wait.expiryInterval = 500000;
+            wait.playerForced = true;
+            pawn.jobs.StartJob(wait, JobCondition.InterruptForced);
         }
 
         private static void SetAim(Building_Searchlight lamp, IntVec3 origin) =>
