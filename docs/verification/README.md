@@ -4,7 +4,13 @@ This page records observed results, test limitations, and reproduction commands.
 Measurements are labeled as observations; they are not claims of controlled
 performance or gameplay-balance testing.
 
-## Per-cell beam illumination
+## Pawn lighting and cover shadows
+
+The [pawn lighting report](partial-shadows/README.md) shows the same beam before
+and after an adult enters it, with measured light at the receiving pawn on
+1.6 and 1.7. A separate game capture shows which cells Combat Extended samples.
+
+## Earlier per-cell beam illumination
 
 The [lighting verification record](illumination/README.md) covers vanilla
 ground glow, the rendered mesh, CE, overlapping lamps, old saves, and tick
