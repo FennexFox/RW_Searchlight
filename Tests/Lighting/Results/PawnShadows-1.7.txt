@@ -1,0 +1,41 @@
+game=1.7.5021; CE=False; assemblyMvid=fd97c7fe-8ffe-49bc-8621-03a64a5cc4ad
+step=baseline; tick=47722
+baseline; target=RGBA(43, 43, 43, 0); support=RGBA(0, 0, 0, 0); outside=RGBA(0, 0, 0, 0)
+step=ambient baseline; tick=47942
+ambient; target=RGBA(0, 0, 0, 0)
+step=restored baseline; tick=48162
+baseline-restored; target=RGBA(43, 43, 43, 0); ambient=RGBA(0, 0, 0, 0)
+step=small pawn; tick=48382
+step=small pawn shadow; tick=48398
+step=large pawn; tick=48414
+step=large pawn cap; tick=48430
+step=explicit 0.8; tick=48446
+step=explicit 0.8 check; tick=48462
+step=explicit 0.95; tick=48478
+step=explicit 0.95 check; tick=48494
+step=stacked pawns; tick=48510
+step=stacked pawns check; tick=48526
+step=coincident pawns; tick=48542
+step=coincident pawns check; tick=48558
+step=chunk item; tick=48574
+step=chunk item check; tick=48590
+step=remove coincident chunk; tick=48606
+step=chunk removed check; tick=48622
+step=opaque wall; tick=48638
+step=opaque wall check; tick=48654
+step=native blocker; tick=48670
+step=native movement; tick=48686
+move; method=direct Position setter, no despawn/respawn; from=(80, 0, 125); to=(81, 0, 126); tick=48687
+step=mesh ready; tick=48703
+step=second lamp; tick=48720
+step=first lamp shadow; tick=48940
+first-lamp-before-overlap; operating=True; mode=Fixed; heading=90.0; range=60.0; receiver=(100, 0, 125); blocker=(80, 0, 125); target=RGBA(23, 23, 23, 0) ground=0.3247
+step=second lamp only; tick=49160
+step=overlap; tick=49380
+step=torch only; tick=49600
+step=torch overlap; tick=49821
+step=mode switch; tick=50042
+step=mode restore; tick=50263
+step=mode restore check; tick=50483
+step=cleanup; tick=50703
+PASS fresh
