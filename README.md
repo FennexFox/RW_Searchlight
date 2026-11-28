@@ -187,6 +187,8 @@ and
 
 ## Verification
 
+The [pawn lighting verification record](docs/verification/partial-shadows/README.md) includes night-time ground-light measurements and captures from both supported versions.
+
 The [coordination verification record](docs/verification/coordination/README.md)
 includes the shared-target night scene, migration checks and reproduction
 commands. Earlier lighting and compatibility results are in the

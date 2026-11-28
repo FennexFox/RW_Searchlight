@@ -1,21 +1,33 @@
-# Directional shadow verification
+# 탐조등의 폰 중심 조명과 부분 그림자 검증
 
-The control assembly is from `de9a507`, which already includes precise per-cell lighting.
-The shadow implementation and bounded map invalidation are in `450e6d5` and `31f2bb9`.
-All measurements below use isolated game profiles.
+기존 정밀 모드(`PreciseField`)를 **빔 안의 폰 조명**으로 교체했다. 빔과 그림자는 바닥 전체에 그린다. 게임 조도에는 빔이 실제로 도달한 모든 폰이 선 칸을 반영한다. Combat Extended(CE)를 사용하면 각 폰의 주변 8칸도 개별적으로 빔 경계와 차폐를 검사한다. 저장된 모드 값은 그대로 읽으며, 기본 모드는 **빔 끝만 조명**이다.
 
-## Visual and ground-light probes
+## 같은 위치에서 비교한 실제 게임 화면
 
-`Tests/Visual/Run-Visual.ps1 -PreciseLighting -RimWorldPath $game` captures the same lane twice at night.
-The camera, light, terrain and aim are fixed. For the second capture the fixture adds a single adult human to the center line, 36 cells from the lamp. The live ground-light grid and uploaded section-overlay mesh are both read back in each scene.
+RimWorld 1.7.5021에서 탐조등을 동쪽으로 고정하고 40칸 지점에 수신 폰을 세웠다. 두 번째 장면에서만 탐조등으로부터 36칸 지점에 성인 폰 한 명을 추가했다. 빛은 왼쪽에서 오른쪽으로 진행한다. 두 캡처에서 같은 영역을 잘랐으며 밝기와 색상은 원본 그대로다.
 
-| Probe (1.6.4871 and 1.7.5021) | Empty lane, ground glow | Pawn present, ground glow |
+**수신 폰만 있을 때** — 수신 폰 위치의 실제 조도는 **0.5000**이다.
+
+![왼쪽에서 들어오는 빔을 받는 수신 폰 한 명](receiver-only-1.7.png)
+
+**앞에 성인 폰을 추가했을 때** — 왼쪽 폰의 칸은 **0.5000**을 유지하고 오른쪽 수신 폰은 **0.3247**로 낮아졌다. 왼쪽 폰 뒤에서 시작한 그림자가 오른쪽 폰까지 이어진다.
+
+![앞쪽 폰 뒤로 그림자가 이어지고 그 안에 수신 폰이 서 있는 장면](two-pawns-detail-1.7.png)
+
+전체 화면에서도 같은 장면을 확인할 수 있다. [1.6 원본](pawn-shadow-1.6.png) · [1.7 원본](pawn-shadow-1.7.png)
+
+## 바닐라 실제 조도 측정
+
+하늘빛을 제외한 `GroundGlowAt`을 측정했다. 1.6.4871과 1.7.5021에서 아래 결과가 일치했다.
+
+| 측정 지점 | 수신 폰만 | 성인 폰 추가 |
 |---|---:|---:|
-| One cell before the pawn | 0.5000 | 0.5000 |
-| Pawn's own cell | 0.5000 | 0.5000 |
-| Four cells behind the pawn | 0.5000 | 0.3247 |
-| One cell to the side of the shadow probe | 0.3529 | 0.3529 |
+| 앞쪽 폰 바로 앞의 빈 칸 | 0.0000 | 0.0000 |
+| 앞쪽 폰을 세운 칸 | 0.0000 | 0.5000 |
+| 수신 폰의 칸 | 0.5000 | 0.3247 |
+| 수신 폰 바로 옆의 빈 칸 | 0.0000 | 0.0000 |
+| 탐조등이 실제로 조도를 등록한 칸 수 | 1 | 2 |
 
-Behind the pawn the searchlight's raw RGB channel fell from 43 to 23, and the live ground-overlay center vertex from 33 to 23. The cap still reached 62 cells visually on a 60-cell aim. Both captures were taken with Harmony 3.0.4.0 and assembly MVID `24c1be5c-ed0f-4260-9342-964446010cb3`. [1.6 screenshot](pawn-shadow-1.6.png)
+폰이 없는 18칸·60칸 빔은 실제 조도를 등록한 칸이 0개였고 화면에는 빔이 남았다. 60칸 조준에서 끝의 둥근 효과를 포함한 시각적 길이는 62칸이었다. 부분 벽과 전체 벽의 메시 차폐도 확인했다.
 
-The 1.7.5021 run reproduced every sample above with Harmony 3.0.4.0 and assembly MVID `1fb6ee8b-2e74-4320-bed5-2e0ac8a11bdd`. The camera captures show the beam remaining bright ahead of the pawn and along either flank. [1.7 screenshot](pawn-shadow-1.7.png)
+재현 명령은 `Tests/Visual/Run-Visual.ps1 -PreciseLighting -RimWorldPath $game`이다. 캡처는 Harmony 3.0.4.0과 `6ad7b39`의 DLL을 사용했다. MVID는 1.6에서 `2b9de7b2-cef2-4902-82d3-058e95824aa5`, 1.7에서 `b9364bd2-1d98-4a65-9b8f-f3181255319d`이다.
