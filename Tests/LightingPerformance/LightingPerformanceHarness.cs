@@ -98,7 +98,7 @@ namespace SearchlightLightingPerformanceHarness
 
     public sealed class LightingPerformanceCheck : GameComponent
     {
-        private enum Workload { Static, Rotating, MovingTarget, ToggledDoor }
+        private enum Workload { Static, Rotating, MovingTarget, ToggledDoor, CrossingStationary, CrossingRotating, CrossingTracking }
         private enum Phase { Setup, Warmup, Sample, FinishSample, Cleanup, MemoryCheck, Finished }
         private const int DoorToggleInterval = 90;
         private const int DoorGlowSampleDelay = 60;
@@ -119,6 +119,15 @@ namespace SearchlightLightingPerformanceHarness
         private static bool walkingRight = true;
         private static int walkerTransitions, walkerTransitionsAtSampleStart;
         private static IntVec3 lastWalkerPosition;
+        private static readonly List<Pawn> crossingPawns = new List<Pawn>();
+        private static readonly List<IntVec3> crossingLastPositions = new List<IntVec3>();
+        private static readonly List<bool> crossingMovingPositiveZ = new List<bool>();
+        private static readonly List<int> crossingPawnMoveCounts = new List<int>();
+        private static readonly List<int> crossingPawnMoveCountsAtSampleStart = new List<int>();
+        private static int crossingMoves, crossingMovesAtSampleStart;
+        private static long meshPoseRebuildsAtSampleStart, shadowRebuildsAtSampleStart;
+        private static long shadowInvalidationsAtSampleStart, shadowAffectedLampsAtSampleStart;
+        private static bool shadowRebuildCounterSupported, shadowInvalidationCountersSupported;
         private static int rotationChanges, rotationChangesAtSampleStart;
         private static float lastRotationHeading;
         private static int doorToggleCycles, doorOpenLitSamples, doorClosedDarkSamples;
@@ -138,6 +147,7 @@ namespace SearchlightLightingPerformanceHarness
         private static MethodInfo setMode;
         private static PropertyInfo currentMode;
         private static object lightingMap;
+        private static object searchlightMap;
         private static Type lightingMapType;
         private static Type integrationType;
         private static PropertyInfo measureFlush;
@@ -228,6 +238,7 @@ namespace SearchlightLightingPerformanceHarness
             measureFlush = integrationType.GetProperty("MeasureFlush", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
             flushTicks = integrationType.GetMethod("FlushTicks", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
             lightingMap = GetLightingDiagnostics();
+            searchlightMap = GetSearchlightMapDiagnostics();
             if (lightingMap != null) SetDiagnosticCollection(true);
             TickProbe.Begin();
             TickProbe.End();
@@ -272,6 +283,8 @@ namespace SearchlightLightingPerformanceHarness
             ClearCase();
             Workload workload = workloads[workloadIndex];
             int count = counts[countIndex];
+            bool crossingWorkload = IsCrossingWorkload(workload);
+            if (crossingWorkload && count > 0) BuildCrossingPawns(count);
             if (workload == Workload.MovingTarget && count > 0)
             {
                 PawnKindDef walkerKind = DefDatabase<PawnKindDef>.GetNamed("Pirate", false) ?? PawnKindDefOf.Colonist;
@@ -295,13 +308,19 @@ namespace SearchlightLightingPerformanceHarness
                 var breakdown = lamp.GetComp<CompBreakdownable>();
                 if (breakdown != null) map.GetComponent<BreakdownManager>().Deregister(breakdown);
                 lamp.GetComp<CompPowerTrader>().PowerOn = true;
-                lamp.SetMode(workload == Workload.Rotating || workload == Workload.MovingTarget ? SearchlightMode.Sweep : SearchlightMode.Fixed);
+                lamp.SetMode(workload == Workload.Rotating || workload == Workload.MovingTarget || workload == Workload.CrossingRotating
+                    ? SearchlightMode.Sweep : SearchlightMode.Fixed);
                 int aimDistance = workload == Workload.ToggledDoor ? 30 : 60;
                 lamp.SetAimCell(p + new IntVec3(aimDistance, 0, 0));
                 if (workload == Workload.MovingTarget)
                 {
                     lamp.SetMode(SearchlightMode.Automatic);
                     lamp.SelectManualTarget(walker);
+                }
+                else if (workload == Workload.CrossingTracking)
+                {
+                    lamp.SetMode(SearchlightMode.Automatic);
+                    lamp.SelectManualTarget(crossingPawns[i]);
                 }
                 Lamps.Add(lamp);
                 if (workload == Workload.ToggledDoor)
@@ -310,7 +329,7 @@ namespace SearchlightLightingPerformanceHarness
                     Doors.Add((Building_Door)GenSpawn.Spawn(doorDef, p + new IntVec3(24, 0, 0), map, Rot4.North));
                 }
             }
-            if (workload == Workload.Rotating)
+            if (workload == Workload.Rotating || workload == Workload.CrossingRotating)
                 foreach (Building_Searchlight lamp in Lamps) lamp.SetSweepAngle(180f);
             rotationChanges = 0;
             if (Lamps.Count > 0) lastRotationHeading = Lamps[0].AimHeading;
@@ -328,9 +347,62 @@ namespace SearchlightLightingPerformanceHarness
             Lamps.Clear();
             if (walker != null && !walker.Destroyed) walker.Destroy(DestroyMode.Vanish);
             walker = null;
+            foreach (Pawn pawn in crossingPawns.ToArray()) if (!pawn.Destroyed) pawn.Destroy(DestroyMode.Vanish);
+            crossingPawns.Clear();
+            crossingLastPositions.Clear();
+            crossingMovingPositiveZ.Clear();
+            crossingPawnMoveCounts.Clear();
+            crossingPawnMoveCountsAtSampleStart.Clear();
             foreach (Building_Door door in Doors.ToArray()) if (!door.Destroyed) door.Destroy(DestroyMode.Vanish);
             Doors.Clear();
         }
+
+        private static bool IsCrossingWorkload(Workload workload) =>
+            workload == Workload.CrossingStationary || workload == Workload.CrossingRotating || workload == Workload.CrossingTracking;
+
+        private static void BuildCrossingPawns(int count)
+        {
+            bool tracking = workloads[workloadIndex] == Workload.CrossingTracking;
+            PawnKindDef walkerKind = tracking
+                ? (DefDatabase<PawnKindDef>.GetNamed("Pirate", false) ?? PawnKindDefOf.Colonist)
+                : PawnKindDefOf.Colonist;
+            Faction faction = tracking ? Faction.OfAncientsHostile : Faction.OfPlayer;
+            int seed = GenText.StableStringHash(PerformanceSeed.Value);
+            for (int i = 0; i < count; i++)
+            {
+                int lane = LampLane(i, count);
+                int crossingX = 12 + i * 2;
+                IntVec3 negativeZ = origin + new IntVec3(crossingX, 0, -24 + lane - 4);
+                IntVec3 positiveZ = origin + new IntVec3(crossingX, 0, -24 + lane + 4);
+                bool movingPositiveZ = ((seed + i * 104729) & 1) == 0;
+                Pawn pawn;
+                Rand.PushState(unchecked(seed + i * 104729));
+                try
+                {
+                    var request = new PawnGenerationRequest(walkerKind, faction,
+                        developmentalStages: DevelopmentalStage.Adult, mustBeCapableOfViolence: true);
+                    pawn = PawnGenerator.GeneratePawn(request);
+                }
+                finally { Rand.PopState(); }
+                IntVec3 start = movingPositiveZ ? negativeZ : positiveZ;
+                IntVec3 destination = movingPositiveZ ? positiveZ : negativeZ;
+                bool clearCrossing = true;
+                for (int dz = -4; dz <= 4; dz++)
+                    if (!(origin + new IntVec3(crossingX, 0, -24 + lane + dz)).Walkable(map)) clearCrossing = false;
+                if (!clearCrossing || !start.Walkable(map) || !destination.Walkable(map))
+                    throw new InvalidOperationException("Crossing lane is not walkable: " + start + " -> " + destination);
+                GenSpawn.Spawn(pawn, start, map);
+                map.fogGrid.Unfog(start);
+                pawn.jobs.StartJob(JobMaker.MakeJob(JobDefOf.Goto, destination), JobCondition.InterruptForced);
+                crossingPawns.Add(pawn);
+                crossingLastPositions.Add(pawn.Position);
+                crossingMovingPositiveZ.Add(movingPositiveZ);
+                crossingPawnMoveCounts.Add(0);
+            }
+            crossingMoves = 0;
+        }
+
+        private static int LampLane(int index, int count) => count <= 1 ? 0 : (int)Math.Round(index * 49.0 / (count - 1));
 
         private static void StartMode(int index)
         {
@@ -338,6 +410,17 @@ namespace SearchlightLightingPerformanceHarness
             Type enumType = setMode.GetParameters().Single().ParameterType;
             object mode = Enum.Parse(enumType, ModeName(modeIndex));
             setMode.Invoke(lightingGame, new[] { mode });
+            if (workloads[workloadIndex] == Workload.CrossingRotating)
+            {
+                foreach (Building_Searchlight lamp in Lamps)
+                {
+                    lamp.SetMode(SearchlightMode.Fixed);
+                    lamp.SetMode(SearchlightMode.Sweep);
+                    lamp.SetSweepAngle(180f);
+                }
+                rotationChanges = 0;
+                if (Lamps.Count > 0) lastRotationHeading = Lamps[0].AimHeading;
+            }
             if (lightingMap == null) lightingMap = GetLightingDiagnostics();
             if (lightingMap != null) SetDiagnosticCollection(true);
             Write("mode-set; mode=" + currentMode.GetValue(lightingGame));
@@ -357,6 +440,9 @@ namespace SearchlightLightingPerformanceHarness
             ValidateCase();
             walkerStartCell = walker == null ? IntVec3.Invalid : walker.Position;
             walkerTransitionsAtSampleStart = walkerTransitions;
+            crossingMovesAtSampleStart = crossingMoves;
+            crossingPawnMoveCountsAtSampleStart.Clear();
+            crossingPawnMoveCountsAtSampleStart.AddRange(crossingPawnMoveCounts);
             rotationChangesAtSampleStart = rotationChanges;
             rotatingHeadingStart = Lamps.Count == 0 ? 0f : Lamps[0].AimHeading;
             doorToggleCyclesAtSampleStart = doorToggleCycles;
@@ -367,6 +453,11 @@ namespace SearchlightLightingPerformanceHarness
             workingSetBefore = Process.GetCurrentProcess().WorkingSet64;
             stageStart = ReadCounters();
             flushTicksStart = ReadFlushTicks();
+            meshPoseRebuildsAtSampleStart = SumLampCounter("MeshPoseCount", out _);
+            shadowRebuildsAtSampleStart = SumLampCounter("ShadowInvalidationRebuildCount", out shadowRebuildCounterSupported);
+            shadowInvalidationsAtSampleStart = ReadOptionalCounter(searchlightMap, "ShadowInvalidationNotifications", out shadowInvalidationCountersSupported);
+            shadowAffectedLampsAtSampleStart = ReadOptionalCounter(searchlightMap, "ShadowInvalidatedLampCount", out bool affectedLampCounterSupported);
+            shadowInvalidationCountersSupported &= affectedLampCounterSupported;
             if (measureFlush != null) measureFlush.SetValue(null, true);
             phase = Phase.Sample;
             phaseTick = Find.TickManager.TicksGame;
@@ -391,6 +482,14 @@ namespace SearchlightLightingPerformanceHarness
             CaptureGc(out long gcBytesAfter, out int gc0After, out int gc1After, out int gc2After);
             long workingSetAfter = Process.GetCurrentProcess().WorkingSet64;
             long flushDelta = ReadFlushTicks() - flushTicksStart;
+            long meshPoseRebuilds = SumLampCounter("MeshPoseCount", out _) - meshPoseRebuildsAtSampleStart;
+            long shadowRebuilds = SumLampCounter("ShadowInvalidationRebuildCount", out _) - shadowRebuildsAtSampleStart;
+            long shadowInvalidations = ReadOptionalCounter(searchlightMap, "ShadowInvalidationNotifications", out _)-shadowInvalidationsAtSampleStart;
+            long shadowAffectedLamps = ReadOptionalCounter(searchlightMap, "ShadowInvalidatedLampCount", out _) - shadowAffectedLampsAtSampleStart;
+            int pawnMoves = crossingMoves - crossingMovesAtSampleStart;
+            int movingPawns = 0;
+            for (int i = 0; i < crossingPawnMoveCounts.Count && i < crossingPawnMoveCountsAtSampleStart.Count; i++)
+                if (crossingPawnMoveCounts[i] > crossingPawnMoveCountsAtSampleStart[i]) movingPawns++;
             Write("sample; mode=" + ModeName(modeIndex) + "; workload=" + workloads[workloadIndex] + "; lamps=" + counts[countIndex] +
                 "; repeat=" + (repeatIndex + 1) + "; ticks=" + raw.Length + "; medianMs=" + Percentile(ms, 0.50).ToString("F5") +
                 "; p95Ms=" + Percentile(ms, 0.95).ToString("F5") + "; meanMs=" + ms.Average().ToString("F5") +
@@ -406,9 +505,18 @@ namespace SearchlightLightingPerformanceHarness
                 "; rotationHeadingStart=" + rotatingHeadingStart + "; rotationHeadingEnd=" + (Lamps.Count == 0 ? 0f : Lamps[0].AimHeading) +
                 "; rotationTransitions=" + (rotationChanges - rotationChangesAtSampleStart) +
                 "; movingStart=" + walkerStartCell + "; movingEnd=" + (walker == null ? "none" : walker.Position.ToString()) +
-                "; movingCellTransitions=" + (walkerTransitions - walkerTransitionsAtSampleStart));
-            if (workloads[workloadIndex] == Workload.Rotating && Lamps.Count > 0 &&
-                rotationChanges - rotationChangesAtSampleStart < sampleTicks / 4)
+                "; movingCellTransitions=" + (walkerTransitions - walkerTransitionsAtSampleStart) +
+                "; pawnCrossingMoves=" + pawnMoves +
+                "; movingPawns=" + movingPawns +
+                "; meshPoseRebuilds=" + meshPoseRebuilds +
+                "; meshPoseRebuildsPerMove=" + RatioOrUnavailable(meshPoseRebuilds, pawnMoves) +
+                "; shadowInvalidationRebuilds=" + (shadowRebuildCounterSupported ? shadowRebuilds.ToString() : "unsupported") +
+                "; shadowInvalidationRebuildsPerMove=" + (shadowRebuildCounterSupported ? RatioOrUnavailable(shadowRebuilds, pawnMoves) : "unsupported") +
+                "; shadowInvalidations=" + (shadowInvalidationCountersSupported ? shadowInvalidations.ToString() : "unsupported") +
+                "; shadowAffectedLampsPerMove=" + (shadowInvalidationCountersSupported ? RatioOrUnavailable(shadowAffectedLamps, pawnMoves) : "unsupported"));
+            int minimumRotationChanges = Math.Max(1, sampleTicks / 60);
+            if ((workloads[workloadIndex] == Workload.Rotating || workloads[workloadIndex] == Workload.CrossingRotating) && Lamps.Count > 0 &&
+                rotationChanges - rotationChangesAtSampleStart < minimumRotationChanges)
                 throw new InvalidOperationException("Rotating fixture changed heading too few times: " + (rotationChanges - rotationChangesAtSampleStart));
             if (workloads[workloadIndex] == Workload.MovingTarget && Lamps.Count > 0 &&
                 (walker == null || !walker.Spawned || walkerTransitions - walkerTransitionsAtSampleStart < 2 ||
@@ -416,6 +524,14 @@ namespace SearchlightLightingPerformanceHarness
                 throw new InvalidOperationException("Moving target did not move and remain tracked; start=" + walkerStartCell +
                     "; end=" + (walker == null ? "null" : walker.Position.ToString()) + "; transitions=" + (walkerTransitions - walkerTransitionsAtSampleStart) +
                     "; locks=" + string.Join(" | ", Lamps.Select(l => l.LockedTarget?.thingIDNumber.ToString() ?? "none")));
+            if (IsCrossingWorkload(workloads[workloadIndex]) && Lamps.Count > 0 &&
+                (crossingPawns.Count != Lamps.Count || pawnMoves < Math.Max(1, crossingPawns.Count * sampleTicks / 1200) ||
+                    movingPawns < (sampleTicks < 1200 ? 1 : crossingPawns.Count) || crossingPawns.Any(p => !p.Spawned) ||
+                    (workloads[workloadIndex] == Workload.CrossingTracking && Lamps.Where((lamp, i) => lamp.LockedTarget != crossingPawns[i]).Any())))
+                throw new InvalidOperationException("Seeded pawn crossings did not move through all lamp lanes or tracking locks were lost; moves=" +
+                    pawnMoves + "; pawns=" + crossingPawns.Count + "; locks=" +
+                    string.Join(" | ", Lamps.Select((l, i) => l.Position + ":" + (l.LockedTarget == null ? "none" : l.LockedTarget.thingIDNumber.ToString()) +
+                        "/" + (i < crossingPawns.Count ? crossingPawns[i].thingIDNumber.ToString() : "missing"))));
             if (workloads[workloadIndex] == Workload.ToggledDoor && Lamps.Count > 0 &&
                 (doorToggleCycles - doorToggleCyclesAtSampleStart < 10 ||
                     doorOpenLitSamples == doorOpenSamplesAtSampleStart || doorClosedDarkSamples == doorClosedSamplesAtSampleStart ||
@@ -437,10 +553,35 @@ namespace SearchlightLightingPerformanceHarness
             return sorted[index];
         }
 
+        private static string RatioOrUnavailable(long numerator, int denominator) => denominator <= 0
+            ? "unavailable" : ((double)numerator / denominator).ToString("F5", System.Globalization.CultureInfo.InvariantCulture);
+
+        private static long SumLampCounter(string name, out bool supported)
+        {
+            supported = true;
+            long total = 0;
+            foreach (Building_Searchlight lamp in Lamps)
+            {
+                object beam = ReadMember(lamp, "beam");
+                if (beam == null || beam is string) { supported = false; continue; }
+                object value = ReadMember(beam, name);
+                if (value == null || value is string) { supported = false; continue; }
+                total += Convert.ToInt64(value);
+            }
+            return total;
+        }
+
+        private static long ReadOptionalCounter(object instance, string name, out bool supported)
+        {
+            object value = instance == null ? null : ReadMember(instance, name);
+            supported = value != null && !(value is string);
+            return supported ? Convert.ToInt64(value) : 0L;
+        }
+
         private static void DriveWorkload()
         {
             Workload workload = workloads[workloadIndex];
-            if (workload == Workload.Rotating && Lamps.Count > 0)
+            if ((workload == Workload.Rotating || workload == Workload.CrossingRotating) && Lamps.Count > 0)
             {
                 float current = Lamps[0].AimHeading;
                 if (Mathf.Abs(Mathf.DeltaAngle(lastRotationHeading, current)) > 0.01f) rotationChanges++;
@@ -485,6 +626,38 @@ namespace SearchlightLightingPerformanceHarness
                 walkerTransitions++;
                 lastWalkerPosition = walker.Position;
             }
+            if (IsCrossingWorkload(workload)) DrivePawnCrossings();
+        }
+
+        private static void DrivePawnCrossings()
+        {
+            for (int i = 0; i < crossingPawns.Count; i++)
+            {
+                Pawn pawn = crossingPawns[i];
+                if (pawn == null || !pawn.Spawned) continue;
+                bool movingPositiveZ = crossingMovingPositiveZ[i];
+                int lane = LampLane(i, crossingPawns.Count);
+                int crossingX = 12 + i * 2;
+                IntVec3 destination = origin + new IntVec3(crossingX, 0, -24 + lane + (movingPositiveZ ? 4 : -4));
+                bool arrived = pawn.Position == destination;
+                if (arrived)
+                {
+                    movingPositiveZ = !movingPositiveZ;
+                    crossingMovingPositiveZ[i] = movingPositiveZ;
+                    destination = origin + new IntVec3(crossingX, 0, -24 + lane + (movingPositiveZ ? 4 : -4));
+                }
+                Job currentJob = pawn.jobs.curJob;
+                if (arrived || currentJob == null || currentJob.def != JobDefOf.Goto || currentJob.targetA.Cell != destination)
+                {
+                    pawn.jobs.StartJob(JobMaker.MakeJob(JobDefOf.Goto, destination), JobCondition.InterruptForced);
+                }
+                if (pawn.Position != crossingLastPositions[i])
+                {
+                    crossingMoves++;
+                    crossingPawnMoveCounts[i]++;
+                    crossingLastPositions[i] = pawn.Position;
+                }
+            }
         }
 
         private static long[] ReadCounters()
@@ -506,6 +679,13 @@ namespace SearchlightLightingPerformanceHarness
                 throw new InvalidOperationException("Moving target fixture did not move and acquire every lamp; pawn=" +
                     (walker == null ? "null" : walker.Position + "; faction=" + walker.Faction + "; hostile=" + walker.HostileTo(Faction.OfPlayer) + "; transitions=" + walkerTransitions) +
                     "; lampStates=" + string.Join(" | ", Lamps.Select(l => l.Position + ":operating=" + l.IsOperating + "; lock=" + l.LockedTarget + "; lastAcquire=" + l.LastAcquireTick)));
+            if (IsCrossingWorkload(workloads[workloadIndex]) && Lamps.Count > 0 &&
+                (crossingPawns.Count != Lamps.Count || crossingPawns.Any(p => !p.Spawned) ||
+                    (workloads[workloadIndex] == Workload.CrossingTracking && Lamps.Where((lamp, i) => lamp.LockedTarget != crossingPawns[i]).Any())))
+                throw new InvalidOperationException("Seeded pawn crossings did not move through all lamp lanes or tracking locks were lost; moves=" +
+                    crossingMoves + "; pawns=" + crossingPawns.Count + "; locks=" +
+                    string.Join(" | ", Lamps.Select((l, i) => l.Position + ":" + (l.LockedTarget == null ? "none" : l.LockedTarget.thingIDNumber.ToString()) +
+                        "/" + (i < crossingPawns.Count ? crossingPawns[i].thingIDNumber.ToString() : "missing"))));
             if (workloads[workloadIndex] == Workload.ToggledDoor && Lamps.Count > 0 &&
                 (Doors.Count != Lamps.Count || doorToggleCycles < 1))
                 throw new InvalidOperationException("Door fixture did not toggle frequently during warmup.");
@@ -539,6 +719,12 @@ namespace SearchlightLightingPerformanceHarness
             object searchlightMap = map.components.FirstOrDefault(c => mapType.IsInstanceOfType(c));
             PropertyInfo p = mapType.GetProperty("Lighting", AnyInstance);
             return searchlightMap == null || p == null ? null : p.GetValue(searchlightMap);
+        }
+
+        private static object GetSearchlightMapDiagnostics()
+        {
+            Type mapType = typeof(Building_Searchlight).Assembly.GetType("DirectedSearchlights.SearchlightMap", true);
+            return map.components.FirstOrDefault(c => mapType.IsInstanceOfType(c));
         }
 
         private static void CaptureGc(out long bytes, out int g0, out int g1, out int g2)

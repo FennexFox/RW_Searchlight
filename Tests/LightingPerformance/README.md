@@ -19,9 +19,26 @@ same value, then checks and records the resulting world seed and map tile.
 
 Use `-WarmupTicks`, `-SampleTicks`, `-Repeats`, `-Counts` and `-Workloads` for
 smaller targeted runs. Workload names are comma-separated values from
-`Static,Rotating,MovingTarget,ToggledDoor`. The runner finds Harmony in the installation's Mods folder
+`Static,Rotating,MovingTarget,ToggledDoor,CrossingStationary,CrossingRotating,CrossingTracking`. The runner finds Harmony in the installation's Mods folder
 or Steam Workshop (`294100/2009463077/<version>`); pass `-HarmonyPath` when it
 is elsewhere.
+
+The targeted pawn-crossing workloads use ten seed-derived pawns, one per lamp
+lane, moving back and forth across each beam. Stationary and rotating fixtures
+use player-faction pawns so sweep lights keep rotating; the tracking fixture
+uses hostile pawns and assigns one target to each lamp. The workloads cover
+fixed stationary lamps, rotating lamps and lamps tracking their assigned pawn.
+Run all three with ten lamps using the same seed and window on each game version:
+
+```powershell
+./Tests/LightingPerformance/Run-LightingPerformance.ps1 -RimWorldPath $game -Seed SearchlightPawnCrossings -WarmupTicks 600 -SampleTicks 1200 -Repeats 3 -Counts 10 -Workloads 'CrossingStationary,CrossingRotating,CrossingTracking'
+```
+
+Each sample logs median and p95 whole-tick time, pawn cell moves, beam mesh
+pose rebuilds per move, and (when the runtime exposes them) shadow invalidation
+rebuilds and affected lamps per move. The crossing summary reports medians
+across repeats. Older baseline assemblies without shadow invalidation counters
+are marked `unsupported`; their beam mesh rebuild rate is still recorded.
 
 Each sample records per-tick whole `DoSingleTick` median, p95 and mean, GC
 allocation deltas (or a managed-heap estimate on runtimes without per-thread

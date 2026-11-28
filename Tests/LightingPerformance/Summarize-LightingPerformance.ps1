@@ -19,6 +19,17 @@ $rows = foreach ($line in Get-Content -LiteralPath $ResultPath) {
         Ticks = [int]$data.ticks
         Median = [double]::Parse($data.medianMs.Replace(',','.'), [cultureinfo]::InvariantCulture)
         P95 = [double]::Parse($data.p95Ms.Replace(',','.'), [cultureinfo]::InvariantCulture)
+        PawnMoves = if ($data.ContainsKey('pawnCrossingMoves')) { [int]$data.pawnCrossingMoves } else { 0 }
+        MovingPawns = if ($data.ContainsKey('movingPawns')) { [int]$data.movingPawns } else { 0 }
+        ShadowRebuildsPerMove = if ($data.ContainsKey('shadowInvalidationRebuildsPerMove') -and $data.shadowInvalidationRebuildsPerMove -notin @('unsupported','unavailable')) {
+            [double]::Parse($data.shadowInvalidationRebuildsPerMove.Replace(',','.'), [cultureinfo]::InvariantCulture)
+        } else { $null }
+        ShadowAffectedLampsPerMove = if ($data.ContainsKey('shadowAffectedLampsPerMove') -and $data.shadowAffectedLampsPerMove -notin @('unsupported','unavailable')) {
+            [double]::Parse($data.shadowAffectedLampsPerMove.Replace(',','.'), [cultureinfo]::InvariantCulture)
+        } else { $null }
+        MeshPoseRebuildsPerMove = if ($data.ContainsKey('meshPoseRebuildsPerMove') -and $data.meshPoseRebuildsPerMove -notin @('unsupported','unavailable')) {
+            [double]::Parse($data.meshPoseRebuildsPerMove.Replace(',','.'), [cultureinfo]::InvariantCulture)
+        } else { $null }
     }
 }
 function Get-Median([double[]]$Samples) {
@@ -57,6 +68,28 @@ $summary = foreach ($group in ($pairs | Group-Object Lamps,Workload)) {
     }
 }
 $summary | Sort-Object Lamps,Workload | Format-Table | Out-String | Write-Output
+$crossingSummary = foreach ($group in ($rows | Where-Object Workload -like 'Crossing*' | Group-Object Lamps,Workload,Mode)) {
+    $rates = @($group.Group | Where-Object { $null -ne $_.ShadowRebuildsPerMove } | ForEach-Object { $_.ShadowRebuildsPerMove })
+    $affectedRates = @($group.Group | Where-Object { $null -ne $_.ShadowAffectedLampsPerMove } | ForEach-Object { $_.ShadowAffectedLampsPerMove })
+    $meshRates = @($group.Group | Where-Object { $null -ne $_.MeshPoseRebuildsPerMove } | ForEach-Object { $_.MeshPoseRebuildsPerMove })
+    [pscustomobject]@{
+        Lamps = $group.Group[0].Lamps
+        Workload = $group.Group[0].Workload
+        Mode = $group.Group[0].Mode
+        Repeats = $group.Count
+        MedianTickMs = [Math]::Round((Get-Median ([double[]]@($group.Group | ForEach-Object Median))),5)
+        P95TickMs = [Math]::Round((Get-Median ([double[]]@($group.Group | ForEach-Object P95))),5)
+        PawnMovesPerRun = [Math]::Round((Get-Median ([double[]]@($group.Group | ForEach-Object PawnMoves))),0)
+        MovingPawnsPerRun = [Math]::Round((Get-Median ([double[]]@($group.Group | ForEach-Object MovingPawns))),0)
+        RebuiltLampsPerMove = if ($rates.Count -eq 0) { 'unsupported' } else { [Math]::Round((Get-Median ([double[]]$rates)),5) }
+        AffectedLampsPerMove = if ($affectedRates.Count -eq 0) { 'unsupported' } else { [Math]::Round((Get-Median ([double[]]$affectedRates)),5) }
+        MeshPoseRebuildsPerMove = if ($meshRates.Count -eq 0) { 'unsupported' } else { [Math]::Round((Get-Median ([double[]]$meshRates)),5) }
+    }
+}
+if ($crossingSummary) {
+    Write-Output 'Pawn crossing timing and rebuild summary (medians across paired repeat samples):'
+    $crossingSummary | Sort-Object Workload,Mode | Format-Table | Out-String | Write-Output
+}
 if ($EnforceGate) {
     $valid = @($summary | Where-Object {
         $_.Lamps -eq 10 -and $_.Repeats -ge 3 -and $_.MinimumTicks -ge 3600 -and $_.WithinBudget
