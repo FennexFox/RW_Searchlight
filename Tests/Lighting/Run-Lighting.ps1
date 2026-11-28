@@ -3,11 +3,14 @@ param(
     [ValidateSet('vanilla','ce')][string]$Case = 'vanilla',
     [ValidateSet('legacy','precise')][string]$Mode,
     [switch]$Lifecycle,
+    [switch]$PawnShadows,
     [ValidateRange(1, 3600)][int]$TimeoutSeconds = 240,
     [string]$RimWorldPath = $env:RIMWORLD_DIR
 )
 $ErrorActionPreference = 'Stop'
-if ($Mode -and $Lifecycle) { throw 'Select either -Mode or -Lifecycle for a single fixture run.' }
+if (($Mode -and $Lifecycle) -or ($PawnShadows -and ($Mode -or $Lifecycle))) {
+    throw 'Pawn shadows, lighting mode, and lifecycle fixtures run separately.'
+}
 if (!$RimWorldPath) { $RimWorldPath = Join-Path $PSScriptRoot '../../../..' }
 $game = (Resolve-Path -LiteralPath $RimWorldPath).Path
 $mod = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
@@ -22,7 +25,7 @@ if (!(Test-Path -LiteralPath $exe -PathType Leaf)) { throw "Game executable miss
 $expectedMvid = Get-AssemblyMvid (Join-Path $mod "$gameVersion/Assemblies/DirectedSearchlights.dll")
 
 $fixtureId = [guid]::NewGuid().ToString('N')
-$variant = if ($Lifecycle) { "$Case-lifecycle" } elseif ($Mode) { "$Case-$Mode" } else { $Case }
+$variant = if ($PawnShadows) { "$Case-pawn-shadows" } elseif ($Lifecycle) { "$Case-lifecycle" } elseif ($Mode) { "$Case-$Mode" } else { $Case }
 $profile = Join-Path $env:TEMP "SearchlightLighting-$variant-$fixtureId"
 $config = Join-Path $profile 'Config'
 $harness = Join-Path $profile 'HarnessMod'
@@ -63,7 +66,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Lighting harness build failed. Build the match
 
 function Invoke-LightingGame([string]$Phase) {
     $result = Join-Path $profile "$Phase-results.txt"
-    $fixtureArgs = if ($Lifecycle) { 'ds-lifecycle' } else { 'ds-lighting' }
+    $fixtureArgs = if ($PawnShadows) { 'ds-pawn-shadow' } elseif ($Lifecycle) { 'ds-lifecycle' } else { 'ds-lighting' }
     $arguments = '-savedatafolder="' + $profile + '" -' + $fixtureArgs + '-output="' + $result + '" -' + $fixtureArgs + '-phase=' + $Phase
     if ($Phase -eq 'fresh') { $arguments += ' -quicktest' }
     if ($Case -eq 'ce') { $arguments += ' -ds-lighting-require-ce' }
@@ -105,6 +108,7 @@ try {
     New-Item -ItemType Junction -Path $link -Target $harness | Out-Null
     $harnessJunction = @{ Path = $link; Target = $harness }
     Invoke-LightingGame 'fresh'
+    if ($PawnShadows) { return }
     $autostart = Join-Path $saves 'autostart.rws'
     if ($Lifecycle) {
         $migrationSave = New-Object System.Xml.XmlDocument

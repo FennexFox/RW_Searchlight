@@ -12,6 +12,7 @@
     <Compile Include="LightingHarness.cs" />
     <Compile Include="GameplayLightingHarness.cs" />
     <Compile Include="LightingLifecycle.cs" />
+    <Compile Include="PawnShadowHarness.cs" />
     <Reference Include="../../$(GameVersion)/Assemblies/DirectedSearchlights.dll" Private="false" />
   </ItemGroup>
   <ItemGroup Condition="'$(GameVersion)' == '1.6'">
