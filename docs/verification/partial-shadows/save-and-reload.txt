@@ -1,0 +1,49 @@
+SearchlightLighting-ce-legacy-5ca85d7e4c274b9fb76145f12d8f5e3d
+game=1.6.4871; phase=fresh; mode=LegacyEndpoint; assemblyMvid=c994cbd8-c03d-4e0c-82de-066f3a0f0995
+save; mode=LegacyEndpoint; endpoint=0.5000/RGBA(195, 179, 147, 0); mid=0.0000/RGBA(0, 0, 0, 0)
+PASS fresh
+game=1.6.4871; phase=reload; mode=LegacyEndpoint; assemblyMvid=c994cbd8-c03d-4e0c-82de-066f3a0f0995
+reload; mode=LegacyEndpoint; endpoint=0.5000/RGBA(195, 179, 147, 0); mid=0.0000/RGBA(0, 0, 0, 0)
+PASS reload
+
+SearchlightLighting-vanilla-legacy-9cebc1c6970945b2b790cee8b625a215
+game=1.6.4871; phase=fresh; mode=LegacyEndpoint; assemblyMvid=c994cbd8-c03d-4e0c-82de-066f3a0f0995
+save; mode=LegacyEndpoint; endpoint=0.5000/RGBA(195, 179, 147, 0); mid=0.0000/RGBA(0, 0, 0, 0)
+PASS fresh
+game=1.6.4871; phase=reload; mode=LegacyEndpoint; assemblyMvid=c994cbd8-c03d-4e0c-82de-066f3a0f0995
+reload; mode=LegacyEndpoint; endpoint=0.5000/RGBA(195, 179, 147, 0); mid=0.0000/RGBA(0, 0, 0, 0)
+PASS reload
+
+SearchlightLighting-vanilla-lifecycle-083919cfc4a3440581d9c4428e43d35b
+game=1.7.5021; assemblyMvid=fd97c7fe-8ffe-49bc-8621-03a64a5cc4ad
+map unload cycle=1; managedBytesBeforeGc=397817320; managedBytesAfterGc=372400200; weakMapRetainedByGame=True
+map unload cycle=2; managedBytesBeforeGc=392893216; managedBytesAfterGc=375589952; weakMapRetainedByGame=True
+map unload cycle=3; managedBytesBeforeGc=395922736; managedBytesAfterGc=378747216; weakMapRetainedByGame=True
+PASS fresh
+game=1.7.5021; assemblyMvid=fd97c7fe-8ffe-49bc-8621-03a64a5cc4ad
+PASS reload
+
+SearchlightLighting-vanilla-lifecycle-9a9fbeee43ff4ba0891df9015c52b3d0
+game=1.6.4871; assemblyMvid=c994cbd8-c03d-4e0c-82de-066f3a0f0995
+map unload cycle=1; managedBytesBeforeGc=284536832; managedBytesAfterGc=271740928; weakMapRetainedByGame=True
+map unload cycle=2; managedBytesBeforeGc=286855168; managedBytesAfterGc=273903616; weakMapRetainedByGame=True
+map unload cycle=3; managedBytesBeforeGc=288894976; managedBytesAfterGc=276238336; weakMapRetainedByGame=True
+PASS fresh
+game=1.6.4871; assemblyMvid=c994cbd8-c03d-4e0c-82de-066f3a0f0995
+PASS reload
+
+SearchlightLighting-vanilla-precise-0d8f67fd1d09421b96a188103bf80c86
+game=1.7.5021; phase=fresh; mode=PreciseField; assemblyMvid=fd97c7fe-8ffe-49bc-8621-03a64a5cc4ad
+save; mode=PreciseField; endpoint=0.5000/RGBA(36, 36, 36, 0); mid=0.0000/RGBA(0, 0, 0, 0)
+PASS fresh
+game=1.7.5021; phase=reload; mode=PreciseField; assemblyMvid=fd97c7fe-8ffe-49bc-8621-03a64a5cc4ad
+reload; mode=PreciseField; endpoint=0.5000/RGBA(36, 36, 36, 0); mid=0.0000/RGBA(0, 0, 0, 0)
+PASS reload
+
+SearchlightLighting-vanilla-precise-202bf52b0cf641dcbe561c7ff7860bfe
+game=1.6.4871; phase=fresh; mode=PreciseField; assemblyMvid=c994cbd8-c03d-4e0c-82de-066f3a0f0995
+save; mode=PreciseField; endpoint=0.1271/RGBA(9, 9, 9, 0); mid=0.0000/RGBA(0, 0, 0, 0)
+PASS fresh
+game=1.6.4871; phase=reload; mode=PreciseField; assemblyMvid=c994cbd8-c03d-4e0c-82de-066f3a0f0995
+reload; mode=PreciseField; endpoint=0.1271/RGBA(9, 9, 9, 0); mid=0.0000/RGBA(0, 0, 0, 0)
+PASS reload

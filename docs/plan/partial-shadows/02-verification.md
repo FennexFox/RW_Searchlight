@@ -38,7 +38,7 @@
 
 ## Progress
 
-- Verifying the pawn-centered provider in isolated 1.6, 1.6+CE and 1.7 profiles.
+- Completed the pawn-centered provider checks in isolated 1.6, 1.6+CE and 1.7 profiles.
 
 ## Decision log
 
@@ -46,4 +46,4 @@
 
 ## Outcomes / Retrospective
 
-- Not completed yet.
+- The [verification report](../../verification/partial-shadows/README.md) contains in-game captures, measured pawn and CE light, occupancy and reload checks, and the paired crossing benchmark. All six candidate precise-mode crossing windows were slower than the reference full-field build. Each timing used one 240-tick window after 60 warmup ticks.

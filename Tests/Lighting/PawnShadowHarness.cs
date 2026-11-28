@@ -201,11 +201,16 @@ namespace SearchlightLightingHarness
             blocker = SpawnPawn(East(20));
             SetFill(blocker.def, 0f);
             SetSize(blocker, 1f);
-            secondBlocker = SpawnPawn(East(25));
+            secondBlocker = SpawnPawn(East(21));
             SetSize(secondBlocker, 1f);
         }
 
-        private void CheckStackedShadow() => CheckTransmission(PawnTransmission(blocker) * PawnTransmission(secondBlocker), "aligned blockers multiply once per occupied cell");
+        private void CheckStackedShadow()
+        {
+            float combined = PawnTransmission(blocker) * PawnTransmission(secondBlocker);
+            CheckTransmission(combined, "aligned blockers multiply once per occupied cell");
+            CheckCarriedCover(secondBlocker, combined);
+        }
 
         private void AddCoincidentPawns()
         {
@@ -240,6 +245,31 @@ namespace SearchlightLightingHarness
         {
             float opacity = Math.Max(PawnOpacity(blocker), Math.Max(0.35f, Math.Min(1f, chunk.BaseBlockChance())));
             CheckTransmission(1f - opacity, "coincident pawn and chunk use strongest cover once");
+            CheckCarriedCover(chunk, 1f - opacity);
+        }
+
+        private void CheckCarriedCover(Thing cargo, float droppedTransmission)
+        {
+            IntVec3 originalCell = cargo.Position;
+            int pickupTick = Tick;
+            Check(blocker.carryTracker.TryStartCarry(cargo, 1, reserve: false) == 1 &&
+                !cargo.Spawned && blocker.carryTracker.CarriedThing == cargo, "pickup removed cargo from map occupancy");
+            StartTickCheck(() =>
+            {
+                if (Tick == pickupTick + 1)
+                {
+                    CheckTransmission(PawnTransmission(blocker), "only the carrier casts a shadow after pickup");
+                    Record($"carried={cargo.def.defName}; ground={Ground(Target):F4}; ticksAfterPickup=1");
+                    Check(blocker.carryTracker.TryDropCarriedThing(originalCell, ThingPlaceMode.Direct, out Thing dropped) &&
+                        dropped == cargo && cargo.Spawned && cargo.Position == originalCell, "drop restored the original map occupant");
+                }
+                else if (Tick == pickupTick + 2)
+                {
+                    CheckTransmission(droppedTransmission, "dropping the cargo restores its shadow");
+                    Record($"dropped={cargo.def.defName}; ground={Ground(Target):F4}; ticksAfterDrop=1");
+                    EndTickCheck();
+                }
+            }, 2);
         }
 
         private void RemoveChunk() => chunk.Destroy(DestroyMode.Vanish);
@@ -277,8 +307,9 @@ namespace SearchlightLightingHarness
                 if (Tick > moveStart)
                 {
                     Check(Tick == moveStart + 1 && mover.Position == East(21, 1), "native pawn Position change was observed on the next tick");
-                    if (requireCe) Check(IsLit(ColorAt(East(20))), "old cell remains included in the moved pawn's in-beam CE support");
-                    else Check(IsDark(ColorAt(East(20))), "old occupied cell no longer retains precise pawn light");
+                    // At this distance the beam is narrower than one cell on either side.
+                    // Moving one cell sideways takes its center outside, also withdrawing CE's neighborhood.
+                    Check(IsDark(ColorAt(East(20))), "leaving the beam withdraws the old occupied cell");
                     CheckTransmission(1f, "receiver brightened after blocker moved outside the beam");
                     Record($"move; method=direct Position setter, no despawn/respawn; from={East(20)}; to={mover.Position}; tick={Tick}");
                     EndTickCheck();
@@ -372,6 +403,13 @@ namespace SearchlightLightingHarness
             Color32 actual = ColorAt(Target);
             byte red = Expected(bare.r, ambient.r, transmission), green = Expected(bare.g, ambient.g, transmission), blue = Expected(bare.b, ambient.b, transmission);
             float expectedGround = Math.Min(0.5f, Math.Max(red, Math.Max(green, blue)) * (3.6f / 255f));
+            if (Math.Abs(actual.r - red) > 1)
+            {
+                for (int x = 1; x <= 40; x++)
+                    foreach (Thing thing in East(x).GetThingList(map))
+                        if (thing is Pawn || thing.BaseBlockChance() > 0f)
+                            Record($"lane-occupant={thing.ThingID}; offset={x}; cover={thing.BaseBlockChance():F3}");
+            }
             Check(Math.Abs(actual.r - red) <= 1 && Math.Abs(actual.g - green) <= 1 && Math.Abs(actual.b - blue) <= 1,
                 $"{label}: expected RGB({red},{green},{blue}), observed {Describe(Target)}");
             Check(Math.Abs(Ground(Target) - expectedGround) <= 0.01f,
@@ -409,9 +447,12 @@ namespace SearchlightLightingHarness
         private Pawn SpawnPawn(IntVec3 cell)
         {
             Pawn pawn = PawnGenerator.GeneratePawn(PawnKindDefOf.Colonist, Faction.OfPlayer);
+            pawn.ageTracker.AgeBiologicalTicks = 30L * GenDate.TicksPerYear;
             GenSpawn.Spawn(pawn, cell, map);
             pawn.drafter.Drafted = true;
-            var hold = JobMaker.MakeJob(JobDefOf.Wait); hold.expiryInterval = 500000; pawn.jobs.StartJob(hold, JobCondition.InterruptForced);
+            pawn.drafter.FireAtWill = false;
+            pawn.pather.StopDead();
+            var hold = JobMaker.MakeJob(JobDefOf.Wait); hold.playerForced = true; hold.expiryInterval = 500000; pawn.jobs.StartJob(hold, JobCondition.InterruptForced);
             return pawn;
         }
 
@@ -434,7 +475,7 @@ namespace SearchlightLightingHarness
                 foreach (Thing thing in cell.GetThingList(map).ToArray())
                     if (thing is Plant || thing.def.IsEdifice() || thing.def.category == ThingCategory.Item || thing.TryGetComp<CompGlower>() != null)
                         thing.Destroy(DestroyMode.Vanish);
-                map.terrainGrid.SetTerrain(cell, TerrainDefOf.Soil);
+                map.terrainGrid.SetTerrain(cell, TerrainDefOf.Concrete);
             }
         }
 
