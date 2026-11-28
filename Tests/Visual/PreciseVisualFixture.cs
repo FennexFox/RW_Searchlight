@@ -29,6 +29,8 @@ namespace SearchlightVisualHarness
         private readonly Action<string> finish;
         private readonly VisualLightMask mask;
         private readonly List<Thing> fixtureWalls = new();
+        private readonly bool requireCe = GenCommandLine.CommandLineArgPassed("ds-visual-ce");
+        private float unshadowedCombatGlow;
         private int scene;
         private int readyTick;
         private int captureFrame;
@@ -55,6 +57,8 @@ namespace SearchlightVisualHarness
             mode.SetMode(SearchlightLightingMode.PreciseField);
             Check(mode.CurrentMode == SearchlightLightingMode.PreciseField, "precise mode enabled");
             record("lighting=precise; Harmony=" + ModLister.GetModWithIdentifier("brrainz.harmony")?.ModVersion);
+            Check(AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name == "CombatExtended") == requireCe,
+                "visual fixture loaded the requested game profile");
             readyTick = Tick + 55;
         }
 
@@ -185,8 +189,21 @@ namespace SearchlightVisualHarness
                 float own = map.glowGrid.GroundGlowAt(East(36), ignoreSky: true);
                 float behind = map.glowGrid.GroundGlowAt(East(40), ignoreSky: true);
                 float expectedBehind = scene == 6 ? 0.325f : 0.50f;
-                Check(samples.Count == scene - 4 && Math.Abs(own - (scene == 6 ? 0.50f : 0f)) < 0.015f && Math.Abs(behind - expectedBehind) < 0.015f,
+                int expectedCells = (scene - 4) * (requireCe ? 9 : 1);
+                Check(samples.Count == expectedCells && Math.Abs(own - (scene == 6 ? 0.50f : 0f)) < 0.015f && Math.Abs(behind - expectedBehind) < 0.015f,
                     $"{Names[scene]} ground glow, caster={own}, shadow={behind}");
+                if (requireCe)
+                {
+                    Check(Intensity(East(40, 1)) > 0 && Intensity(East(40, 2)) == 0 && Intensity(East(38)) == 0,
+                        "CE samples a clipped neighborhood around each pawn");
+                    var trackerType = GenTypes.GetTypeInAnyAssembly("CombatExtended.LightingTracker");
+                    var tracker = map.GetComponent(trackerType);
+                    float combatGlow = (float)trackerType.GetMethod("CombatGlowAtFor")
+                        .Invoke(tracker, new object[] { East(-2), East(40) });
+                    if (scene == 5) unshadowedCombatGlow = combatGlow;
+                    else Check(combatGlow > 0f && combatGlow < unshadowedCombatGlow, "CE target combat glow responds to cover");
+                    record($"CE combat glow={combatGlow:F4}; reached cells={samples.Count}");
+                }
             }
             var probes = scene switch
             {

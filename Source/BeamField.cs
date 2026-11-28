@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using RimWorld;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -89,7 +90,8 @@ namespace DirectedSearchlights
 
             if (map != newMap)
                 combatExtendedActive = newMap != null &&
-                    ModLister.GetActiveModWithIdentifier(CombatExtendedPackageId, ignorePostfix: true) != null;
+                    LoadedModManager.RunningModsListForReading.Any(mod =>
+                        string.Equals(mod.PackageIdPlayerFacing, CombatExtendedPackageId, StringComparison.OrdinalIgnoreCase));
             if (map != newMap || origin != newOrigin || newRange <= 0f) hasObstacleCache = false;
             map = newMap;
             origin = newOrigin;

@@ -1,9 +1,11 @@
 param(
     [switch]$PreciseLighting,
+    [switch]$CombatExtended,
     [int]$TimeoutSeconds = 180,
     [string]$RimWorldPath = (Join-Path $PSScriptRoot '..\..\..\..')
 )
 $ErrorActionPreference = 'Stop'
+if ($CombatExtended) { $PreciseLighting = $true }
 $game = (Resolve-Path -LiteralPath $RimWorldPath).Path
 $mod = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 . (Join-Path $PSScriptRoot '../RunnerModStaging.ps1')
@@ -38,6 +40,7 @@ New-Item -ItemType Directory -Path $config,$about,$assemblyDir | Out-Null
 </ModMetaData>
 "@ | Set-Content -LiteralPath (Join-Path $about 'About.xml') -Encoding utf8
 $mods = @('ludeon.rimworld', 'DirectedSearchlights.Searchlight', 'searchlight.visualharness')
+if ($CombatExtended) { $mods = @('ludeon.rimworld','CETeam.CombatExtended','DirectedSearchlights.Searchlight','searchlight.visualharness') }
 if ($PreciseLighting) { $mods = @('brrainz.harmony') + $mods }
 $items = ($mods | ForEach-Object { "    <li>$_</li>" }) -join "`n"
 @"
@@ -62,6 +65,7 @@ try {
     Write-Output "Profile: $profile"
     $argLine = '-quicktest -savedatafolder="' + $profile + '" -ds-visual-output="' + $profile + '"'
     if ($PreciseLighting) { $argLine += ' -ds-visual-precise' }
+    if ($CombatExtended) { $argLine += ' -ds-visual-ce' }
     if ($gameVersion -eq '1.6') {
         $argLine += ' -logFile "' + (Join-Path $profile 'Player.log') + '" -screen-fullscreen 0 -screen-width 1280 -screen-height 800'
     }
