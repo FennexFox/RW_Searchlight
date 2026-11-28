@@ -1,7 +1,8 @@
 param(
     [int]$TimeoutSeconds = 420,
     [string]$RimWorldPath = $env:RIMWORLD_DIR,
-    [switch]$AtmosphereOverhaul
+    [switch]$AtmosphereOverhaul,
+    [switch]$PreciseLighting
 )
 $ErrorActionPreference = 'Stop'
 $scenarioDir = (Resolve-Path -LiteralPath $PSScriptRoot).Path
@@ -32,7 +33,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Scenario harness build failed' }
 
 $mods = @('ludeon.rimworld', 'DirectedSearchlights.Searchlight', 'searchlight.scenarioharness')
 $phases = @('fresh', 'current')
-if ($AtmosphereOverhaul) {
+if ($AtmosphereOverhaul -or $PreciseLighting) {
     $mods = @('brrainz.harmony', 'ludeon.rimworld', 'acutus.AtmosphereOverhaul.release', 'DirectedSearchlights.Searchlight', 'searchlight.scenarioharness')
     $phases = @('solar')
 }
@@ -56,6 +57,7 @@ try {
         $log = Join-Path $profile "$phase-console.log"
         $argLine = '-savedatafolder="' + $profile + '" -ds-scenario-phase=' + $phase +
             ' -ds-scenario-result="' + $result + '"'
+        if ($PreciseLighting) { $argLine += ' -ds-scenario-precise-lighting' }
         if ($phase -ne 'current') { $argLine = '-quicktest ' + $argLine }
         if ($gameVersion -eq '1.6') {
             $log = Join-Path $profile "$phase-Player.log"

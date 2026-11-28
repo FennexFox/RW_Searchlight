@@ -7,7 +7,9 @@ Requested on 2026-11-19: write implementation plans for the two proposed updates
 2. Actual game illumination restricted to the cells reached by the beam.
 
 Update 1 is implemented. Its [coordination record](../../verification/coordination/README.md)
-tracks the game builds, fixtures and observed results. Update 2 is planned.
+tracks the game builds, fixtures and observed results. Update 2 implements
+per-save lighting providers. Its [verification record](../../verification/illumination/README.md)
+tracks the integration, gameplay and release checks.
 Existing MVP acceptance remains recorded in `../searchlights/` and `../../verification/`.
 
 ## Strategy

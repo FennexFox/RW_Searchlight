@@ -14,7 +14,7 @@ These instructions apply throughout the RimWorld mod unless a nearer `AGENTS.md`
 - A tower can detect an unroofed enemy behind cover. The beam still stops at walls and closed doors. Test target acquisition, beam clipping and actual ground illumination separately.
 - Tracking uses the pawn's progress between cells. Keep the existing pan and tilt limits when changing how aim is updated.
 - A powered light with **Activate on detection** can scan while its beam is off and its draw is zero. **Night only** also gates scanning. With Atmosphere Overhaul active, the schedule follows the local solar horizon.
-- The shipped lighting model uses one vanilla glower at the reached endpoint. For ground illumination, sample `GroundGlowAt` with sky light excluded and allow the glow grid to refresh. Combat Extended samples neighboring cells for combat glow. The [per-cell illumination plan](docs/plan/post-mvp/02-illumination.md) describes future work and its acceptance criteria.
+- Endpoint mode uses one vanilla glower at the reached endpoint. In precise mode the finite-lens sampler publishes only reached pawn cells (CE also samples their clipped 3×3 neighborhoods). Overlapping searchlights use the maximum. For ground illumination, sample `GroundGlowAt` with sky light excluded and allow the glow grid to refresh. Combat Extended samples neighboring cells for combat glow. See the [lighting verification record](docs/verification/illumination/README.md).
 
 ## Build and package
 
@@ -37,11 +37,13 @@ Set `$game` to the same RimWorld installation used for the build.
 | Tracking, standby, power or save/load | `Tests/Scenarios/Run-Scenarios.ps1 -RimWorldPath $game` |
 | Target sharing, reservations or alerts | `Tests/Coordination/Run-Coordination.ps1 -RimWorldPath $game` |
 | Rendered beam shape or clipping | `Tests/Visual/Run-Visual.ps1 -RimWorldPath $game` |
+| Per-cell illumination and migration | `Tests/Lighting/Run-Lighting.ps1 -RimWorldPath $game -Mode precise` and `-Lifecycle`; add `-PreciseLighting` to the coordination and visual runners |
+| Lighting performance and new-game default | `Tests/LightingPerformance/Run-LightingPerformance.ps1 -RimWorldPath $game -Full` |
 | CE lighting or night vision | `Tests/Optics/Run-Optics.ps1 -RimWorldDir $game` with a compatible CE installation |
 | Game startup or optional-mod integration | `Tests/Runtime/Run-Runtime.ps1 -RimWorldDir $game` with the relevant `-Case` |
 | Packaged assembly, Defs or textures | `Tests/VerifyPackage.ps1 -GameVersion 1.6` and `-GameVersion 1.7` |
 
-For the coordination check, install or link this rebuilt checkout in the selected game's Mods folder before launching. The coordination runner stages its test harness only and does not verify the loaded mod DLL. Check the installation path and matching versioned DLL before relying on a pass.
+For the coordination check, build the matching versioned DLL first. The runner uses this checkout in the selected game's Mods folder, staging a temporary junction when needed, and checks the loaded assembly's MVID in every phase.
 
 Use the existing harness runners and their isolated save-data profiles. Keep the player's saves, active mod list and configuration intact. Report the commands, game version, relevant mod versions and observed results. Identify any target that could only be built or could not be exercised.
 

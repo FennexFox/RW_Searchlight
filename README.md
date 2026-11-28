@@ -101,14 +101,32 @@ zoom: it remains based on the aim distance. With the default four-cell
 diameter, the beam is about two cells wide where it is blocked halfway along a
 60-cell aim.
 
-The beam is rendered as an overlay. Actual game illumination comes from a
-vanilla light source placed at the reached endpoint; its physical radius is
+In Mod Settings, **Lighting in this save** selects how a searchlight illuminates
+the ground. The default is **Endpoint only**. With Harmony enabled, select
+**Pawns in beam** to give gameplay light to every spawned pawn reached by the
+beam, including animals and friendlies. The beam and shadows remain visible
+across the ground. In vanilla only the occupied pawn cell receives gameplay
+light. With Combat Extended, each reached pawn also samples the surrounding
+eight cells used by CE, clipped to the physical beam, range and cover.
+Contributions move with the pawns. Overlapping searchlights use the strongest
+contribution. A save previously set to **Reached beam cells** uses this mode.
+
+In **Pawns in beam**, cover casts a directional shadow on both the
+visible beam and the ground light used by the game. A stone chunk blocks 50%
+of the light behind it. Pawns with a defined cover value use it. Other pawns
+block 35% per unit of current body size, up to 90%. The cell occupied by the
+first pawn still gets the incoming light. Two ordinary adults in successive
+cells leave about 42% of the original searchlight contribution behind them.
+In a shared cell only the strongest cover counts.
+
+In **Endpoint only**, actual illumination comes from a vanilla light source
+placed at the reached endpoint. Its physical radius is
 half the beam width at that point. With the default setting, the endpoint
 radius is about 2 cells at full range and about 1 cell when blocked halfway
 along a 60-cell aim. A minimum radius of 0.5 cells is used when the beam is
 blocked close to the building so the cell center is illuminated.
 
-The beam itself does not light intermediate cells. The endpoint light can
+In endpoint mode, intermediate cells outside the endpoint radius remain dark. The endpoint light can
 illuminate cells outside the visible beam near its endpoint because vanilla
 lighting spreads radially. Combat Extended (CE) combines vanilla lighting with
 the shooter's night-vision capability. The documented nighttime combat-glow
@@ -116,8 +134,8 @@ cap of 0.5 was verified with CE 16.7.4.0.
 
 Power use is 150 W for the turret and 200 W for the tower. These are three and
 four times the researched vanilla floodlight's 50 W, respectively. The added
-cost is for long-range tracking and the tower's additional detection ability,
-not for a stronger endpoint light. See [the power comparison](docs/verification/power-balance.md).
+cost is for long-range tracking and the tower's additional detection ability.
+See [the power comparison](docs/verification/power-balance.md).
 
 The beam has a rounded visual falloff beyond the aim point. At the
 default diameter, the visible cap can extend up to 2 cells past the aim point;
@@ -168,6 +186,8 @@ and
 [Verb_LaunchProjectileCE](https://github.com/CombatExtended-Continued/CombatExtended/blob/d847807b84ab7c140f89390c3032e3947b9ab386/Source/CombatExtended/CombatExtended/Verbs/Verb_LaunchProjectileCE.cs).
 
 ## Verification
+
+The [pawn lighting verification record](docs/verification/partial-shadows/README.md) includes night-time ground-light measurements and captures from both supported versions.
 
 The [coordination verification record](docs/verification/coordination/README.md)
 includes the shared-target night scene, migration checks and reproduction

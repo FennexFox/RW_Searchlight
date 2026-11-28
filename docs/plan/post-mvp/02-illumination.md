@@ -177,17 +177,30 @@ status; never leave a mixture of registered old and new lighting providers.
 
 ## Progress
 
-Plan written; no adapter API, performance budget or precise-light implementation
-has yet been validated.
+Implemented the adapter, shared pose, sparse lamp fields, maximum aggregation
+and per-save provider switch. The one-cell and gameplay fixtures passed on
+1.6.4871 with vanilla and CE and on 1.7.5014 with vanilla. The visual fixtures
+read back the ground mesh. Separate game processes verified save restoration,
+old-save migration and mode selection. See [the verification record](../../verification/illumination/README.md).
 
 ## Decision log
 
 Use a sparse map-owned field rather than one Thing per cell. Keep gameplay range
 at 60 and treat the rounded extension as cosmetic. Prefer max overlap to stacking.
-Do not assert any particular private game field/hook until the integration proof
-has checked the installed assemblies. Keep current AO scope closed.
+The verified adapter reads the indexed accumulated glow using optional Harmony
+and invalidates changed cells at the glow grid update. Keep current AO scope closed.
 
 ## Outcomes / Retrospective
 
-Pending implementation. Record the selected adapter and rejected alternatives,
-measured light samples, update latency and performance traces before acceptance.
+The indexed accumulated-color hook reaches both vanilla gameplay and visual
+consumers and preserves the original overlight alpha. A hook limited to
+GroundGlowAt would miss the rendered overlay. Radial custom glowers cannot
+represent the clipped footprint. The final field publisher coalesces mesh
+refreshes and glow-change notifications and leaves vanilla flood buffers intact.
+Stationary fields reuse their last exact blocker snapshot; changed poses use
+a bounded scan along the beam's dominant axis.
+
+The 1.6 and 1.7 packages ship precise illumination as an opt-in per-save
+setting. The ten-light rotation benchmark exceeded the tick-time limits on
+both versions. New games start in endpoint mode, which also remains the
+migration default for older saves. See the [benchmark results and samples](../../verification/illumination/README.md#performance-and-default-mode).

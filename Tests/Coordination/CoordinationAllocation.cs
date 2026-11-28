@@ -219,8 +219,10 @@ namespace SearchlightCoordinationHarness
             Require(smallId.thingIDNumber < bigId.thingIDNumber, "tie fixture spawns smaller pawn ID first");
             After(180, () =>
             {
-                Require(lamp.LockedTarget == smallId && lamp.SpotCell == smallId.Position,
-                    "Independent preserves distance/ID ordering and endpoint illumination");
+                Require(lamp.LockedTarget == smallId,
+                    "Independent preserves distance/ID ordering");
+                RequireIlluminated(lamp, smallId.Position,
+                    "Independent preserves its selected target illumination");
                 lamp.SelectManualTarget(outside);
                 Require(lamp.LockedTarget == smallId, "manual order rejects 61 cells");
                 lamp.SetMode(SearchlightMode.Sweep);
@@ -230,8 +232,10 @@ namespace SearchlightCoordinationHarness
                 Require(Read(lamp, "manualTarget") == null, "Sweep rejects manual designation outside current arc");
                 After(150, () =>
                 {
-                    Require(lamp.LockedTarget == atLimit && lamp.SpotCell == atLimit.Position,
+                    Require(lamp.LockedTarget == atLimit,
                         "Sweep rejects out-of-arc automatic candidates and accepts the visible 60-cell limit");
+                    RequireIlluminated(lamp, atLimit.Position,
+                        "Sweep illuminates the accepted 60-cell target");
                     Require(Reserved(Network, outside) == 0 && Reserved(Network, atLimit) == 1,
                         "exact range boundaries are reflected in reservations");
                     lamp.SelectManualTarget(atLimit);
@@ -314,8 +318,11 @@ namespace SearchlightCoordinationHarness
             }
             After(90, () =>
             {
-                Require(lamps.All(l => l.LockedTarget == walker && l.SpotCell == walker.Position),
+                Require(lamps.All(l => l.LockedTarget == walker),
                     "ten lamps have settled on the target before it starts walking");
+                foreach (Building_Searchlight lamp in lamps)
+                    RequireIlluminated(lamp, walker.Position,
+                        "a moving target is illuminated after the lamps settle");
                 // Other coordination fixtures stop their pawns every tick.
                 pawns.Remove(walker);
                 walker.jobs.StartJob(JobMaker.MakeJob(JobDefOf.Goto, Cell(48, 8)), JobCondition.InterruptForced);
@@ -326,13 +333,21 @@ namespace SearchlightCoordinationHarness
                 IntVec3 startCell = walker.Position;
                 After(120, () =>
                 {
+                    IntVec3 progressCell = ProgressCell(walker);
+                    float moveProgress = walker.pather.MovePercentage;
                     int poses = BeamCount("MeshPoseCount") - startPoses;
                     int scans = BeamCount("ObstacleScanCount") - startScans;
                     int traces = BeamCount("VisualRayTraceCount") - startTraces;
                     Write($"moving-perf; lamps=10; ticks=120; start={startCell}; end={walker.Position}; " +
+                        $"next={walker.pather.nextCell}; progress={moveProgress:F3}; progressCell={progressCell}; " +
                         $"meshPoses={poses}; obstacleScans={scans}; visualRayTraces={traces}");
                     Require(walker.Position.DistanceToSquared(startCell) >= 4 && lamps.All(l => l.LockedTarget == walker),
                         "the moving target stayed locked by all ten lamps");
+                    if (preciseLightingRequested)
+                        RequireIlluminated(lamps[0], walker.Position, "the occupied target cell receives the moving beam");
+                    else
+                        foreach (Building_Searchlight lamp in lamps)
+                            RequireIlluminated(lamp, progressCell, "the legacy endpoint follows the moving target's progress cell");
                     Require(poses > 200 && scans < poses && traces == 0,
                         "fractional motion reuses the obstacle scan and requires no visual ray traces in open ground");
                     pawns.Add(walker);

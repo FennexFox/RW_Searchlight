@@ -73,7 +73,10 @@ namespace DirectedSearchlights
         internal bool UsesFixedDetection => mode == SearchlightMode.Fixed && powerMode == PowerMode.EnemyOnly;
         internal bool HasFixedEnemy => fixedEnemy != null;
         internal DetectionAlertMode EffectiveAlertMode => mode == SearchlightMode.Fixed ? DetectionAlertMode.Off : alertMode;
+        internal int ShadowInvalidationRebuildCount => beam?.ShadowInvalidationRebuildCount ?? 0;
         private bool ScansForEnemies => mode != SearchlightMode.Fixed || powerMode == PowerMode.EnemyOnly;
+
+        internal bool InvalidateShadows(IntVec3 cell) => beam?.InvalidateShadows(cell) ?? false;
 
         protected virtual bool DetectThroughWalls => false;
         protected virtual bool RequiresOpenSky => false;
@@ -316,10 +319,15 @@ namespace DirectedSearchlights
             return Mathf.Atan2(cell.x - Position.x, cell.z - Position.z) * Mathf.Rad2Deg;
         }
 
-        private void RefreshBeamAndSpot()
+        internal void RefreshBeamAndSpot()
         {
             if (!IsOperating || beam == null) { ClearVisuals(); return; }
-            beam.Update(Map, Position, aimHeading, aimRange, SearchlightSettings.Diameter);
+            beam.Update(Map, Position, aimHeading, aimRange, SearchlightSettings.Diameter, searchlights.PreciseLighting);
+            if (searchlights.PreciseLighting)
+            {
+                searchlights.Lighting.Publish(this, beam);
+                return;
+            }
             IntVec3 cell = beam.CenterCell;
             if (!cell.IsValid) { RemoveSpot(); return; }
             if (lightSpot == null || lightSpot.Destroyed)
@@ -343,7 +351,7 @@ namespace DirectedSearchlights
             }
         }
 
-        private void RemoveSpot()
+        internal void RemoveSpot()
         {
             if (lightSpot != null && !lightSpot.Destroyed)
                 lightSpot.Destroy(DestroyMode.Vanish);
@@ -352,8 +360,9 @@ namespace DirectedSearchlights
 
         private void ClearVisuals()
         {
+            searchlights?.WithdrawField(this);
             RemoveSpot();
-            beam?.Update(Map, Position, aimHeading, 0f, SearchlightSettings.Diameter);
+            beam?.Update(Map, Position, aimHeading, 0f, SearchlightSettings.Diameter, searchlights?.PreciseLighting ?? false);
         }
 
         internal void DrawBeam()

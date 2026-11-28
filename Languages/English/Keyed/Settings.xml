@@ -1,4 +1,9 @@
 <LanguageData>
   <DS_BeamDiameter>Beam diameter at the aiming distance: {0} tiles</DS_BeamDiameter>
   <DS_DefaultAlertMode>Detection alerts for new searchlights</DS_DefaultAlertMode>
+  <DS_LightingMode>Lighting in this save</DS_LightingMode>
+  <DS_LegacyEndpoint>Endpoint only</DS_LegacyEndpoint>
+  <DS_PreciseField>Pawns in beam</DS_PreciseField>
+  <DS_LightingRequiresHarmony>Endpoint lighting is active. Enable Harmony to use lighting for pawns in the beam.</DS_LightingRequiresHarmony>
+  <DS_PreciseUnavailable>Endpoint lighting is active. Pawn lighting is unavailable on this installation. See the game log for details.</DS_PreciseUnavailable>
 </LanguageData>

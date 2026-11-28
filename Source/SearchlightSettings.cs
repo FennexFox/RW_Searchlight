@@ -22,6 +22,28 @@ namespace DirectedSearchlights
         {
             var listing = new Listing_Standard();
             listing.Begin(bounds);
+            var game = Current.Game?.GetComponent<SearchlightLightingGame>();
+            if (game != null)
+            {
+                var mode = game.CurrentMode;
+                if (!LightingIntegration.Failed)
+                {
+                    if (listing.ButtonTextLabeled("DS_LightingMode".Translate(), ("DS_" + mode).Translate()))
+                    {
+                        if (mode == SearchlightLightingMode.PreciseField)
+                            game.SetMode(SearchlightLightingMode.LegacyEndpoint);
+                        else if (LightingIntegration.Available)
+                            game.SetMode(SearchlightLightingMode.PreciseField);
+                        else Log.Warning("[Directed Searchlights] " + LightingIntegration.Status);
+                    }
+                }
+                else
+                {
+                    listing.Label((LightingIntegration.MissingHarmony
+                        ? "DS_LightingRequiresHarmony" : "DS_PreciseUnavailable").Translate());
+                }
+                listing.Gap();
+            }
             listing.Label("DS_BeamDiameter".Translate(diameter.ToString("0.0")));
             diameter = Mathf.Round(listing.Slider(diameter, 2f, 6f) * 10f) / 10f;
             listing.Gap();

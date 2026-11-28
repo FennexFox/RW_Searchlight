@@ -13,6 +13,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="VisualHarness.cs" />
+    <Compile Include="PreciseVisualFixture.cs" />
     <Reference Include="../../$(GameVersion)/Assemblies/DirectedSearchlights.dll" Private="false" />
   </ItemGroup>
   <ItemGroup Condition="'$(GameVersion)' == '1.6'">

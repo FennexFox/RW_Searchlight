@@ -31,6 +31,8 @@ namespace SearchlightCoordinationHarness
             if (!enabled) return;
             try
             {
+                Record("game=" + VersionControl.CurrentVersionString + "; assemblyMvid=" +
+                    typeof(Building_Searchlight).Assembly.ManifestModule.ModuleVersionId.ToString("D"));
                 lamps = Find.CurrentMap.listerThings.AllThings.OfType<Building_Searchlight>().ToArray();
                 Require(lamps.Length == 10, "expected the ten-lamp vanilla runtime fixture");
                 Require(lamps.All(l => l.Policy == AssignmentPolicy.Independent &&

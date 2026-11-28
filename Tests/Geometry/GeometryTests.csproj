@@ -6,6 +6,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../Source/BeamGrid.cs" Link="BeamGrid.cs" />
+    <Compile Include="../../Source/BeamPose.cs" Link="BeamPose.cs" />
+    <Compile Include="../../Source/BeamLightField.cs" Link="BeamLightField.cs" />
+    <Compile Include="../../Source/BeamShadowGeometry.cs" Link="BeamShadowGeometry.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
 </Project>
