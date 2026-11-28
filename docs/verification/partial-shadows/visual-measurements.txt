@@ -1,0 +1,130 @@
+RimWorld 1.6
+assemblyMvid=2b9de7b2-cef2-4902-82d3-058e95824aa5
+Obstacle cache: item spawn/removal reused the footprint; wall spawn/removal refreshed it.
+setup; game=1.6.4871; map=(250, 1, 250); origin=(90, 0, 125); diameter=4
+lighting=precise; Harmony=3.0.4.0
+scene=18-tiles; cell=(99, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=18-tiles; cell=(108, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=18-tiles; cell=(109, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=18-tiles; cell=(99, 0, 128); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=18-tiles; sampledCells=0; uploadedBeamEnd=20.000; sky=0.0000; pairedMask=18-tiles-mask.png
+scene=60-tiles; cell=(120, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles; cell=(149, 0, 126); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles; cell=(150, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles; cell=(151, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles; sampledCells=0; uploadedBeamEnd=62.000; sky=0.0000; pairedMask=60-tiles-mask.png
+scene=60-tiles-tip; cell=(149, 0, 126); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles-tip; cell=(150, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles-tip; cell=(151, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles-tip; sampledCells=0; uploadedBeamEnd=62.000; sky=0.0000; pairedMask=60-tiles-tip-mask.png
+scene=partial-wall; cell=(119, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=partial-wall; cell=(120, 0, 126); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=partial-wall; cell=(135, 0, 126); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=partial-wall; cell=(135, 0, 124); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=partial-wall; sampledCells=0; uploadedBeamEnd=62.000; sky=0.0000; pairedMask=partial-wall-mask.png
+scene=full-wall; cell=(119, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=full-wall; cell=(120, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=full-wall; cell=(121, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=full-wall; cell=(124, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=full-wall; sampledCells=0; uploadedBeamEnd=29.500; sky=0.0000; pairedMask=full-wall-mask.png
+probe pawn=Human25898; cell=(130, 0, 125); bodySize=1
+scene=empty-lane; cell=(125, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=empty-lane; cell=(126, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=empty-lane; cell=(130, 0, 125); intensity=43; artificialGround=0.5000; overlayCenter=RGBA(10, 10, 10, 0)
+scene=empty-lane; cell=(130, 0, 126); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(5, 5, 5, 0)
+scene=empty-lane; sampledCells=1; uploadedBeamEnd=62.000; sky=0.0000; pairedMask=empty-lane-mask.png
+probe pawn=Human25901; cell=(126, 0, 125); bodySize=1
+scene=pawn-shadow; cell=(125, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(5, 5, 5, 0)
+scene=pawn-shadow; cell=(126, 0, 125); intensity=44; artificialGround=0.5000; overlayCenter=RGBA(11, 11, 11, 0)
+scene=pawn-shadow; cell=(130, 0, 125); intensity=23; artificialGround=0.3247; overlayCenter=RGBA(5, 5, 5, 0)
+scene=pawn-shadow; cell=(130, 0, 126); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(2, 2, 2, 0)
+scene=pawn-shadow; sampledCells=2; uploadedBeamEnd=62.000; sky=0.0000; pairedMask=pawn-shadow-mask.png
+PASS
+
+RimWorld 1.7
+assemblyMvid=b9364bd2-1d98-4a65-9b8f-f3181255319d
+Obstacle cache: item spawn/removal reused the footprint; wall spawn/removal refreshed it.
+setup; game=1.7.5021; map=(250, 1, 250); origin=(90, 0, 125); diameter=4
+lighting=precise; Harmony=3.0.4.0
+scene=18-tiles; cell=(99, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=18-tiles; cell=(108, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=18-tiles; cell=(109, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=18-tiles; cell=(99, 0, 128); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=18-tiles; sampledCells=0; uploadedBeamEnd=20.000; sky=0.0000; pairedMask=18-tiles-mask.png
+scene=60-tiles; cell=(120, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles; cell=(149, 0, 126); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles; cell=(150, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles; cell=(151, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles; sampledCells=0; uploadedBeamEnd=62.000; sky=0.0000; pairedMask=60-tiles-mask.png
+scene=60-tiles-tip; cell=(149, 0, 126); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles-tip; cell=(150, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles-tip; cell=(151, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles-tip; sampledCells=0; uploadedBeamEnd=62.000; sky=0.0000; pairedMask=60-tiles-tip-mask.png
+scene=partial-wall; cell=(119, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=partial-wall; cell=(120, 0, 126); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=partial-wall; cell=(135, 0, 126); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=partial-wall; cell=(135, 0, 124); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=partial-wall; sampledCells=0; uploadedBeamEnd=62.000; sky=0.0000; pairedMask=partial-wall-mask.png
+scene=full-wall; cell=(119, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=full-wall; cell=(120, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=full-wall; cell=(121, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=full-wall; cell=(124, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=full-wall; sampledCells=0; uploadedBeamEnd=29.500; sky=0.0000; pairedMask=full-wall-mask.png
+probe pawn=Human17118; cell=(130, 0, 125); bodySize=1
+scene=empty-lane; cell=(125, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=empty-lane; cell=(126, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=empty-lane; cell=(130, 0, 125); intensity=43; artificialGround=0.5000; overlayCenter=RGBA(10, 10, 10, 0)
+scene=empty-lane; cell=(130, 0, 126); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(5, 5, 5, 0)
+scene=empty-lane; sampledCells=1; uploadedBeamEnd=62.000; sky=0.0000; pairedMask=empty-lane-mask.png
+probe pawn=Human17121; cell=(126, 0, 125); bodySize=1
+scene=pawn-shadow; cell=(125, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(5, 5, 5, 0)
+scene=pawn-shadow; cell=(126, 0, 125); intensity=44; artificialGround=0.5000; overlayCenter=RGBA(11, 11, 11, 0)
+scene=pawn-shadow; cell=(130, 0, 125); intensity=23; artificialGround=0.3247; overlayCenter=RGBA(5, 5, 5, 0)
+scene=pawn-shadow; cell=(130, 0, 126); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(2, 2, 2, 0)
+scene=pawn-shadow; sampledCells=2; uploadedBeamEnd=62.000; sky=0.0000; pairedMask=pawn-shadow-mask.png
+PASS
+
+RimWorld 1.6 + Combat Extended
+assemblyMvid=c994cbd8-c03d-4e0c-82de-066f3a0f0995
+Obstacle cache: item spawn/removal reused the footprint; wall spawn/removal refreshed it.
+setup; game=1.6.4871; map=(250, 1, 250); origin=(90, 0, 125); diameter=4
+lighting=precise; Harmony=3.0.4.0
+scene=18-tiles; cell=(99, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=18-tiles; cell=(108, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=18-tiles; cell=(109, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=18-tiles; cell=(99, 0, 128); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=18-tiles; sampledCells=0; uploadedBeamEnd=20.000; sky=0.0000; pairedMask=18-tiles-mask.png
+scene=60-tiles; cell=(120, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles; cell=(149, 0, 126); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles; cell=(150, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles; cell=(151, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles; sampledCells=0; uploadedBeamEnd=62.000; sky=0.0000; pairedMask=60-tiles-mask.png
+scene=60-tiles-tip; cell=(149, 0, 126); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles-tip; cell=(150, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles-tip; cell=(151, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=60-tiles-tip; sampledCells=0; uploadedBeamEnd=62.000; sky=0.0000; pairedMask=60-tiles-tip-mask.png
+scene=partial-wall; cell=(119, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=partial-wall; cell=(120, 0, 126); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=partial-wall; cell=(135, 0, 126); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=partial-wall; cell=(135, 0, 124); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=partial-wall; sampledCells=0; uploadedBeamEnd=62.000; sky=0.0000; pairedMask=partial-wall-mask.png
+scene=full-wall; cell=(119, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=full-wall; cell=(120, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=full-wall; cell=(121, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=full-wall; cell=(124, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=full-wall; sampledCells=0; uploadedBeamEnd=29.500; sky=0.0000; pairedMask=full-wall-mask.png
+probe pawn=Human20827; cell=(130, 0, 125); bodySize=1
+CE combat glow=0.3897; reached cells=9
+scene=empty-lane; cell=(125, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=empty-lane; cell=(126, 0, 125); intensity=0; artificialGround=0.0000; overlayCenter=RGBA(0, 0, 0, 0)
+scene=empty-lane; cell=(130, 0, 125); intensity=43; artificialGround=0.5000; overlayCenter=RGBA(31, 31, 31, 0)
+scene=empty-lane; cell=(130, 0, 126); intensity=25; artificialGround=0.3529; overlayCenter=RGBA(21, 21, 21, 0)
+scene=empty-lane; sampledCells=9; uploadedBeamEnd=62.000; sky=0.0000; pairedMask=empty-lane-mask.png
+probe pawn=Human20830; cell=(126, 0, 125); bodySize=1
+CE combat glow=0.3243; reached cells=18
+scene=pawn-shadow; cell=(125, 0, 125); intensity=45; artificialGround=0.5000; overlayCenter=RGBA(24, 24, 24, 0)
+scene=pawn-shadow; cell=(126, 0, 125); intensity=44; artificialGround=0.5000; overlayCenter=RGBA(29, 29, 29, 0)
+scene=pawn-shadow; cell=(130, 0, 125); intensity=23; artificialGround=0.3247; overlayCenter=RGBA(22, 22, 22, 0)
+scene=pawn-shadow; cell=(130, 0, 126); intensity=25; artificialGround=0.3529; overlayCenter=RGBA(17, 17, 17, 0)
+scene=pawn-shadow; sampledCells=18; uploadedBeamEnd=62.000; sky=0.0000; pairedMask=pawn-shadow-mask.png
+PASS

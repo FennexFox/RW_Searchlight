@@ -20,7 +20,7 @@ RimWorld 1.7.5021에서 탐조등을 동쪽으로 고정하고 40칸 지점에 �
 
 ![앞쪽 폰 뒤로 그림자가 이어지고 그 안에 수신 폰이 서 있는 장면](two-pawns-detail-1.7.png)
 
-전체 화면에서도 같은 장면을 확인할 수 있다. [1.6 원본](pawn-shadow-1.6.png) · [1.7 원본](pawn-shadow-1.7.png)
+전체 화면에서도 같은 장면을 확인할 수 있다. [1.6 원본](pawn-shadow-1.6.png) · [1.7 원본](pawn-shadow-1.7.png) · [세 환경의 장면별 측정 원본](visual-measurements.txt)
 
 ## 바닐라 실제 조도 측정
 
